@@ -34,7 +34,7 @@ def _add_spacing(img, img_size):
     return img_
 
 
-def X_onto_ax(_X, fig, ax, vs, cmap):
+def samples_onto_ax(_X, fig, ax, vs, cmap):
     """ Drop a sample _X onto an ax by gridding it first """
     _, c, img_size, _ = _X.shape
     im = ax.imshow(

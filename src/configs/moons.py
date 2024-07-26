@@ -1,17 +1,7 @@
-import jax
-import jax.random as jr
-import numpy as np 
-import optax
-
-# from _sde import SDE, VPSDE, SubVPSDE, VESDE
-
-
-img_dir = "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_with_sde_lib/imgs/"
-exp_dir = "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_with_sde_lib/exps/"
-
+import jax 
 
 class MoonsConfig:
-    key                 = jr.PRNGKey(0)
+    seed                = 0
     # Data
     dataset_name        = "moons" 
     # Model
@@ -40,8 +30,6 @@ class MoonsConfig:
     lr                  = 1e-4
     batch_size          = 256 
     print_every         = 5_000
-    opt                 = optax.adabelief(lr)
+    opt                 = "adabelief" 
     # Other
     cmap                = "PiYG" 
-    img_dir             = img_dir
-    exp_dir             = exp_dir 

@@ -3,3 +3,4 @@ from .mnist import mnist
 from .flowers import flowers
 from .moons import moons
 from .utils import Scaler, ScalerDataset, _InMemoryDataLoader, _TorchDataLoader
+from ._data import get_labels

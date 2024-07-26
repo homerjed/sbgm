@@ -7,16 +7,15 @@ import jax.random as jr
 from jax.sharding import NamedSharding, Mesh, PartitionSpec as P
 import equinox as eqx
 from jaxtyping import Key, Array
+import optax
 import numpy as np 
 import matplotlib.pyplot as plt
 from tqdm import trange
 
 import sgm
-from sgm import X_onto_ax, plot_metrics, save_opt_state, load_opt_state
-import configs
 import data
-# from configs import Config, FlowersConfig, CIFAR10Config, MNISTConfig, MoonsConfig
-# from data import cifar10, mnist, moons, flowers, ScalerDataset, get_labels
+import configs
+from sgm._misc import samples_onto_ax, plot_metrics, save_opt_state, load_opt_state
 
 
 def get_sharding():
@@ -40,15 +39,15 @@ def shard_batch(
     sharding: Optional[NamedSharding] = None
 ) -> Tuple[Array, Array]:
     if sharding:
-        batch = jax.device_put(batch, sharding)
+        # batch = jax.device_put(batch, sharding)
+        batch = eqx.filter_shard(batch, sharding)
     return batch
 
 
 def count_params(model: eqx.Module) -> int:
     return np.log10(
         sum(
-            x.size 
-            for x in jax.tree_util.tree_leaves(model) 
+            x.size for x in jax.tree_util.tree_leaves(model) 
             if eqx.is_array(x)
         )
     )
@@ -56,12 +55,12 @@ def count_params(model: eqx.Module) -> int:
 
 def sample_and_plot(
     # Sampling
-    key: jr.PRNGKey, 
+    key: Key, 
     # Data
     dataset: data.ScalerDataset,
     # Config
     config: configs.Config,
-    # Model / SDE
+    # Model and SDE
     model: eqx.Module,
     sde: sgm.sde.SDE,
     # Plotting
@@ -70,8 +69,7 @@ def sample_and_plot(
     def plot_sample(samples, Q, mode, dataset_name):
         fig, ax = plt.subplots(dpi=300)
         if dataset_name != "moons":
-            X_onto_ax(samples, fig, ax, vs=None, cmap=config.cmap)
-            # X_onto_ax(samples, fig, ax, cmap)
+            samples_onto_ax(samples, fig, ax, vs=None, cmap=config.cmap)
         else:
             ax.scatter(*samples.T, c=Q, cmap=config.cmap)
         plt.savefig(filename + "_" + mode, bbox_inches="tight")
@@ -81,33 +79,25 @@ def sample_and_plot(
         # data [0,1] was normed to [-1, 1]
         sample = dataset.scaler.reverse(sample) # [-1,1] -> [0, 1]
         if dataset.name != "moons":
-            sample = jnp.clip(sample, 0., 1.)#dataset.min, dataset.max) 
+            sample = jnp.clip(sample, 0., 1.) 
         return sample
 
+    key_Q, key_sample = jr.split(key)
+    sample_keys = jr.split(key_sample, config.sample_size ** 2)
+
     # Sample random labels or use parameter prior for labels
-    if "fields" in dataset.name:
-        Q = data.get_labels(dataset.name)
-        ix = jr.choice(key, jnp.arange(len(Q)), (config.sample_size ** 2,))
-        Q = Q[ix]
-    if "moons" in dataset.name:
-        Q = jr.choice(key, jnp.array([0., 1.]), (config.sample_size ** 2,))[:, jnp.newaxis]
-    if dataset.name in ["mnist", "cifar10", "flowers"]:
-        # CIFAR10, MNIST, ...
-        Q = jr.choice(key, jnp.arange(10), (config.sample_size ** 2,))[:, jnp.newaxis]
- 
-    data_shape = dataset.data_shape 
-    sample_keys = jr.split(key, config.sample_size ** 2)
+    Q = data.get_labels(key_Q, dataset, config)
 
     # EU sampling
     if config.eu_sample:
-        sample_fn = sgm.sample.get_eu_sample_fn(model, sde, data_shape)
+        sample_fn = sgm.sample.get_eu_sample_fn(model, sde, dataset.data_shape)
         sample = jax.vmap(sample_fn)(sample_keys, Q)
         sample = rescale(sample)
         plot_sample(sample, Q, mode="eu", dataset_name=dataset.name)
 
+    # ODE sampling
     if config.ode_sample:
-        # ODE sampling
-        sample_fn = sgm.sample.get_ode_sample_fn(model, sde, data_shape)
+        sample_fn = sgm.sample.get_ode_sample_fn(model, sde, dataset.data_shape)
         sample = jax.vmap(sample_fn)(sample_keys, Q)
         sample = rescale(sample)
         plot_sample(sample, Q, mode="ode", dataset_name=dataset.name)
@@ -115,13 +105,15 @@ def sample_and_plot(
 
 def plot_train_sample(dataset, sample_size, vs, cmap, filename):
     fig, ax = plt.subplots(dpi=300)
+
     # Unscale data from dataloader
     X, Q = next(dataset.train_dataloader.loop(sample_size ** 2))
     print("batch X", X.min(), X.max())
     X = dataset.scaler.reverse(X)[:sample_size ** 2]
-    print(X.min(), X.max())
+    print("batch X (scaled)", X.min(), X.max())
+
     if dataset.name != "moons":
-        X_onto_ax(X, fig, ax, vs, cmap)
+        samples_onto_ax(X, fig, ax, vs, cmap)
     else: 
         ax.scatter(*X.T, c=Q, cmap="PiYG")
     del X, Q
@@ -129,55 +121,9 @@ def plot_train_sample(dataset, sample_size, vs, cmap, filename):
     plt.close()
 
 
-def get_model(
-    model_type: str, 
-    data_shape: Sequence[int], 
-    context_dim: Sequence[int], 
-    model_key: Key, 
-    config: configs.Config
-) -> eqx.Module:
-    if model_type == "Mixer":
-        model = sgm.models.Mixer2d(
-            data_shape,
-            **config.model_args,
-            t1=config.t1,
-            context_dim=context_dim,
-            key=model_key
-        )
-    if model_type == "UNet":
-        model = sgm.models.UNet(
-            data_shape=data_shape,
-            **config.model_args,
-            condition_dim=context_dim,
-            key=model_key
-        )
-    if model_type == "mlp":
-        model = sgm.models.ResidualNetwork(
-            in_size=np.prod(data_shape),
-            **config.model_args,
-            y_dim=context_dim,
-            key=model_key
-        )
-    return model
-
-
-def get_dataset(
-    dataset_name: str, key: jr.PRNGKey, config: configs.Config
-) -> data.ScalerDataset:
-    if dataset_name == "flowers":
-        dataset = data.flowers(key, n_pix=config.n_pix)
-    if dataset_name == "cifar10":
-        dataset = data.cifar10(key)
-    if dataset_name == "mnist":
-        dataset = data.mnist(key)
-    if dataset_name == "moons":
-        dataset = data.moons(key)
-    return dataset
-
-
-def make_dirs(config: configs.Config) -> Tuple[str, str]:
-    img_dir = os.path.join(config.img_dir, config.dataset_name + "/")
-    exp_dir = os.path.join(config.exp_dir, config.dataset_name + "/")
+def make_dirs(root_dir: str, config: configs.Config) -> Tuple[str, str]:
+    img_dir = os.path.join(root_dir, "exps/", config.dataset_name + "/") 
+    exp_dir = os.path.join(root_dir, "imgs/", config.dataset_name + "/") 
     for _dir in [img_dir, exp_dir]:
         if not os.path.exists(_dir):
             os.makedirs(_dir, exist_ok=True)
@@ -231,13 +177,62 @@ def save_model(model: eqx.Module, filename: str) -> None:
     eqx.tree_serialise_leaves(filename, model)
 
 
+def get_model(
+    model_key: Key, 
+    model_type: str, 
+    data_shape: Sequence[int], 
+    context_dim: Sequence[int], 
+    config: configs.Config
+) -> eqx.Module:
+    if model_type == "Mixer":
+        model = sgm.models.Mixer2d(
+            data_shape,
+            **config.model_args,
+            t1=config.t1,
+            context_dim=context_dim,
+            key=model_key
+        )
+    if model_type == "UNet":
+        model = sgm.models.UNet(
+            data_shape=data_shape,
+            **config.model_args,
+            condition_dim=context_dim,
+            key=model_key
+        )
+    if model_type == "mlp":
+        model = sgm.models.ResidualNetwork(
+            in_size=np.prod(data_shape),
+            **config.model_args,
+            y_dim=context_dim,
+            key=model_key
+        )
+    if model_type == "DiT":
+        raise NotImplementedError
+    return model
+
+
+def get_dataset(
+    dataset_name: str, key: Key, config: configs.Config
+) -> data.ScalerDataset:
+    if dataset_name == "flowers":
+        dataset = data.flowers(key, n_pix=config.n_pix)
+    if dataset_name == "cifar10":
+        dataset = data.cifar10(key)
+    if dataset_name == "mnist":
+        dataset = data.mnist(key)
+    if dataset_name == "moons":
+        dataset = data.moons(key)
+    return dataset
+
+
 def get_sde(config: configs.Config) -> sgm.sde.SDE:
-    sde = getattr(sgm.sde, config.sde_type)
+    sde = getattr(sgm.sde, config.sde + "SDE")
     return sde(
         beta_integral=config.beta_integral,
         dt=config.dt,
         t0=config.t0, 
-        t1=config.t1
+        t1=config.t1,
+        N=config.N
     )
 
 
@@ -246,36 +241,43 @@ def main():
         Fit a score-based diffusion model.
     """
     # config = configs.FlowersConfig
-    # config = configs.CIFAR10Config
     config = configs.MNISTConfig
+    # config = configs.CIFAR10Config
 
-    key = config.key
-    data_key, model_key, train_key, sample_key = jr.split(key, 4)
+    root_dir = "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_lib/sgm/"
+
+    key = jr.key(config.seed)
+    data_key, model_key, train_key, sample_key, valid_key = jr.split(key, 5)
 
     # Non-config args
-    dataset             = get_dataset(config.dataset_name, data_key, config)
-    data_shape          = dataset.data_shape
-    context_dim         = np.prod(dataset.context_shape)
-    model               = get_model(
+    dataset          = get_dataset(config.dataset_name, data_key, config)
+    data_shape       = dataset.data_shape
+    context_dim      = np.prod(dataset.context_shape)
+    opt              = getattr(optax, config.opt)(config.lr)
+    sharding         = get_sharding()
+    reload_opt_state = False # Restart training or not
+
+    # Diffusion model 
+    model = get_model(
+        model_key, 
         config.model_type, 
         data_shape, 
         context_dim, 
-        model_key, 
         config
     )
-    sde                 = sgm.sde.VPSDE(
+    # SDE, get getattr(sgm.sde, config.sde)
+    sde = sgm.sde.VPSDE(
         config.beta_integral, 
         dt=config.dt, 
         t0=config.t0, 
         t1=config.t1, 
         N=config.N
     ) 
-    opt                 = config.opt
-    sharding            = get_sharding()
-    reload_opt_state    = False 
 
-    exp_dir, img_dir = make_dirs(config)
+    # Experiment and image save directories
+    exp_dir, img_dir = make_dirs(root_dir, config)
 
+    # Plot SDE over time 
     plot_sde(sde, filename=os.path.join(exp_dir, "sde.png"))
 
     # Plot a sample of training data
@@ -294,7 +296,6 @@ def main():
     state_filename = os.path.join(
         exp_dir, f"state_{dataset.name}_{config.model_type}.obj"
     )
-    print("MODEL FILENAME:\n\t", model_filename)
 
     print("Model n_params =", count_params(model))
 
@@ -304,9 +305,9 @@ def main():
         start_step = 0
     else:
         state = load_opt_state(filename=state_filename)
-        opt, opt_state, start_step = state.values()
-
         model = load_model(model, model_filename)
+
+        opt, opt_state, start_step = state.values()
 
         print("Loaded model and optimiser state.")
 
@@ -317,7 +318,6 @@ def main():
     train_losses = []
     valid_losses = []
     dets = []
-    valid_key, _ = jr.split(key)
 
     if config.use_ema:
         ema_model = deepcopy(model)
@@ -325,27 +325,34 @@ def main():
     with trange(start_step, config.n_steps, colour="red") as steps:
         for step, train_batch, valid_batch in zip(
             steps, 
-            dataset.train_dataloader.loop(config.batch_size), 
-            dataset.valid_dataloader.loop(config.batch_size) 
+            dataset.train_dataloader.loop(
+                config.batch_size, num_workers=8
+            ), 
+            dataset.valid_dataloader.loop(
+                config.batch_size, num_workers=8
+            )
         ):
             # Train
             x, q = shard_batch(train_batch, sharding)
-            L, model, train_key, opt_state = sgm.train.make_step(
+            _Lt, model, train_key, opt_state = sgm.train.make_step(
                 model, sde, x, q, train_key, opt_state, opt.update
             )
 
-            train_total_value += L.item()
+            train_total_value += _Lt.item()
             train_total_size += 1
             train_losses.append(train_total_value / train_total_size)
-
-            # Validate
-            x, q = shard_batch(valid_batch, sharding)
-            valid_L = sgm.train.evaluate(model, sde, x, q, valid_key)
 
             if config.use_ema:
                 ema_model = sgm.apply_ema(ema_model, model)
 
-            valid_total_value += valid_L.item()
+            # Validate
+            x, q = shard_batch(valid_batch, sharding)
+            _Lv = sgm.train.evaluate(
+                ema_model if config.use_ema else model, sde, x, q, valid_key
+            )
+
+            # Record
+            valid_total_value += _Lv.item()
             valid_total_size += 1
             valid_losses.append(valid_total_value / valid_total_size)
 
@@ -380,6 +387,9 @@ def main():
                     filename=state_filename
                 )
 
+                # Plot losses etc
+                plot_metrics(train_losses, valid_losses, dets, step, exp_dir)
+
                 if config.dataset_name == "moons":
                     p_x_q_fn = sgm.ode.get_log_likelihood_fn(
                         ema_model if config.use_ema else model,
@@ -402,8 +412,6 @@ def main():
                 # plt.hist(p_x_qs.flatten(), bins=16)
                 # plt.savefig("p_x_qs.png")
                 # plt.close()
-
-                plot_metrics(train_losses, valid_losses, dets, step, exp_dir)
 
 
 if __name__ == "__main__":

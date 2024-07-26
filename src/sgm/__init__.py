@@ -11,12 +11,13 @@ from . import _sde as sde
 from . import _ode as ode
 from . import _train as train
 from . import _sample as sample
+from . import _misc as utils
 from .models import Mixer2d, UNet, ResidualNetwork
-from ._misc import (
-    imgs_to_grid,
-    _add_spacing,
-    X_onto_ax,
-    plot_metrics,
-    save_opt_state,
-    load_opt_state
-) 
+# from ._misc import (
+#     imgs_to_grid,
+#     _add_spacing,
+#     X_onto_ax,
+#     plot_metrics,
+#     save_opt_state,
+#     load_opt_state
+# ) 

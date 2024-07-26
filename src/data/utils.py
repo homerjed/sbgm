@@ -53,18 +53,19 @@ class _InMemoryDataLoader(_AbstractDataLoader):
 
 
 class _TorchDataLoader(_AbstractDataLoader):
-    def __init__(self, dataset, *, key):
+    def __init__(self, dataset, *, num_workers=None, key):
         self.dataset = dataset
-        # min = torch.iinfo(torch.int32).min
-        # max = torch.iinfo(torch.int32).max
-        self.seed = int(key.sum().item()) #jr.randint(key, (), min, max).item() # key.sum().item() ?
+        min = torch.iinfo(torch.int32).min
+        max = torch.iinfo(torch.int32).max
+        self.seed = jr.randint(key, (), min, max).item() # key.sum().item() ?
+        self.num_workers = num_workers
 
-    def loop(self, batch_size):
+    def loop(self, batch_size, num_workers=2):
         generator = torch.Generator().manual_seed(self.seed)
         dataloader = torch.utils.data.DataLoader(
             self.dataset,
             batch_size=batch_size,
-            num_workers=2,
+            num_workers=self.num_workers if self.num_workers is not None else num_workers,
             shuffle=True,
             drop_last=True,
             generator=generator,
