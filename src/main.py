@@ -245,22 +245,30 @@ def main():
     """
         Fit a score-based diffusion model.
     """
-    config = configs.FlowersConfig
-    config = configs.CIFAR10Config
+    # config = configs.FlowersConfig
+    # config = configs.CIFAR10Config
     config = configs.MNISTConfig
 
     key = config.key
-    model_key, train_key, sample_key = jr.split(key, 3)
+    data_key, model_key, train_key, sample_key = jr.split(key, 4)
 
     # Non-config args
-    dataset             = get_dataset(config.dataset_name, key, config)
+    dataset             = get_dataset(config.dataset_name, data_key, config)
     data_shape          = dataset.data_shape
     context_dim         = np.prod(dataset.context_shape)
     model               = get_model(
-        config.model_type, data_shape, context_dim, model_key, config
+        config.model_type, 
+        data_shape, 
+        context_dim, 
+        model_key, 
+        config
     )
     sde                 = sgm.sde.VPSDE(
-        config.beta_integral, dt=config.dt, t0=config.t0, t1=config.t1, N=config.N
+        config.beta_integral, 
+        dt=config.dt, 
+        t0=config.t0, 
+        t1=config.t1, 
+        N=config.N
     ) 
     opt                 = config.opt
     sharding            = get_sharding()

@@ -23,7 +23,6 @@ def get_beta_fn(beta_integral: Union[Callable, Module]) -> Callable:
 
 def _get_log_prob_fn(scale: float = 1.) -> Callable:
     def _log_prob_fn(z: Array) -> Array:
-        # NOTE: Summing over data-dims... prefer multivariate...
         return jax.scipy.stats.norm.logpdf(z, loc=0., scale=scale).sum()
     return _log_prob_fn
 
