@@ -1,4 +1,4 @@
-from typing import Sequence, Callable
+from typing import Sequence, Callable, Optional
 import diffrax as dfx  
 import jax
 import jax.numpy as jnp
@@ -16,7 +16,9 @@ def single_ode_sample_fn(
     sde: SDE, 
     data_shape: Sequence[int], 
     key: Key,
-    q: Array 
+    q: Optional[Array] = None,
+    a: Optional[Array] = None,
+    solver: Optional[dfx.AbstractSolver] = None
 ) -> Array:
     model = eqx.tree_inference(model, True)
 
@@ -26,16 +28,17 @@ def single_ode_sample_fn(
         """
             dx = [f(x, t) - 0.5 * g^2(t) * score(x, t, q)] * dt
         """
-        (q,) = args
-        drift, _ = reverse_sde.sde(y, t, q)
+        (q, a) = args
+        drift, _ = reverse_sde.sde(y, t, q, a)
         return drift
 
     term = dfx.ODETerm(ode)
-    solver = get_solver() 
+    solver = solver if solver is not None else get_solver() 
     y1 = sde.prior_sample(key, data_shape) 
+
     # Reverse time, solve from t1 to t0
     sol = dfx.diffeqsolve(
-        term, solver, sde.t1, sde.t0, -sde.dt, y1, (q,)
+        term, solver, sde.t1, sde.t0, -sde.dt, y1, (q, a)
     )
     return sol.ys[0]
 
@@ -46,7 +49,8 @@ def single_eu_sample_fn(
     sde: SDE, 
     data_shape: Sequence[int], 
     key: Key, 
-    q: Array,
+    q: Optional[Array] = None,
+    a: Optional[Array] = None,
     T_sample: int = 1_000
 ) -> Array:
     """ Euler-Murayama sampler of reverse SDE """
@@ -56,12 +60,12 @@ def single_eu_sample_fn(
     step_size = (sde.t1 - sde.t0) / T_sample 
     # keys = jr.split(key, T_sample)
 
-    _, std_t1 = sde.marginal_prob(jnp.zeros(data_shape), sde.t1)
+    # _, std_t1 = sde.marginal_prob(jnp.zeros(data_shape), sde.t1)
     # std_t1 = jnp.sqrt(jnp.maximum(std_t1, 1e-5)) # SDEs give std not var
-    x = sde.prior_sample(key, data_shape) * std_t1 # x = x * std(t=1.)???
+    x = sde.prior_sample(key, data_shape) #* std_t1 # x = x * std(t=1.)???
     reverse_sde = sde.reverse(model, probability_flow=False)
 
-    def body_fn(i, val):
+    def marginal(i, val):
         """
             Euler Maryuma iteration:
             dx <- [f(x, t) - g^2(t) * score(x, t, q)] * dt + g(t) * sqrt(dt) * eps_t
@@ -71,9 +75,9 @@ def single_eu_sample_fn(
         (mean_x, x) = val
         t = time_steps[i]
         
-        key_eps = jr.fold_in(key, i) # keys[i]
+        key_eps = jr.fold_in(key, i) 
         eps_t = jr.normal(key_eps, data_shape)
-        drift, diffusion = reverse_sde.sde(x, t, q)
+        drift, diffusion = reverse_sde.sde(x, t, q, a)
         mean_x = x + drift * (-step_size)
         # x = [f(x, t) - g^2(t) * score(x, t, q)] * dt + g(t) * sqrt(dt) * eps_t
         x = mean_x + diffusion * jnp.sqrt(step_size) * eps_t
@@ -81,7 +85,7 @@ def single_eu_sample_fn(
         return mean_x, x
 
     mean_x, x = jax.lax.fori_loop(
-        0, T_sample, body_fn, init_val=(jnp.zeros_like(x), x)
+        0, T_sample, marginal, init_val=(jnp.zeros_like(x), x)
     )
 
     # Do not include any noise in the last sampling step.
@@ -94,8 +98,10 @@ def get_eu_sample_fn(
     data_shape: Sequence[int], 
     T_sample: int = 1_000
 ) -> Callable:
-    def _eu_sample_fn(key, q): 
-        return single_eu_sample_fn(model, sde, data_shape, key, q, T_sample) 
+    def _eu_sample_fn(key, q, a): 
+        return single_eu_sample_fn(
+            model, sde, data_shape, key, q, a, T_sample
+        ) 
     return _eu_sample_fn
 
 
@@ -104,6 +110,8 @@ def get_ode_sample_fn(
     sde: SDE, 
     data_shape: Sequence[int]
 ) -> Callable:
-    def _ode_sample_fn(key, q):
-        return single_ode_sample_fn(model, sde, data_shape, key, q)
+    def _ode_sample_fn(key, q, a):
+        return single_ode_sample_fn(
+            model, sde, data_shape, key, q, a
+        )
     return _ode_sample_fn

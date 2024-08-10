@@ -115,6 +115,7 @@ class Mixer2d(eqx.Module):
     blocks: list[MixerBlock]
     norm: eqx.nn.LayerNorm
     t1: float
+    embedding_dim: int
 
     def __init__(
         self,
@@ -125,7 +126,9 @@ class Mixer2d(eqx.Module):
         mix_hidden_size,
         num_blocks,
         t1,
-        context_dim,
+        embedding_dim=4,
+        q_dim=None,
+        a_dim=None,
         *,
         key
     ):
@@ -156,31 +159,36 @@ class Mixer2d(eqx.Module):
                 hidden_size, 
                 mix_patch_size, 
                 mix_hidden_size, 
-                context_dim=context_dim + 4,
+                context_dim=a_dim + embedding_dim,
                 key=bkey
             ) 
             for bkey in bkeys
         ]
         self.norm = eqx.nn.LayerNorm((hidden_size, num_patches))
         self.t1 = t1
+        self.embedding_dim = embedding_dim
 
-    def __call__(self, t, y, q, *, key=None):
+    def __call__(self, t, y, q=None, a=None, *, key=None):
         _, height, width = y.shape
         # t = t / self.t1
-        t, q = jnp.atleast_1d(t), jnp.atleast_1d(q)
-        # _t = einops.repeat(
-        #     t, "1 -> 1 h w", h=height, w=width
-        # )
-        # y = jnp.concatenate([y, _t])
-        t = get_timestep_embedding(t, embedding_dim=4)[0]
-        q = jnp.concatenate([q, t])
-        y = self.conv_in(y)
+        t = jnp.atleast_1d(t)
+        t = get_timestep_embedding(t, embedding_dim=self.embedding_dim)[0]
+        if q is not None:
+            yq = jnp.concatenate([y, q])
+            _input = yq
+        else:
+            _input = y
+        y = self.conv_in(_input)
         _, patch_height, patch_width = y.shape
-        y = einops.rearrange(
-            y, "c h w -> c (h w)"
-        )
+        y = einops.rearrange(y, "c h w -> c (h w)")
+        if a is not None:
+            a = jnp.atleast_1d(a)
+            at = jnp.concatenate([a, t])
+            _input = at
+        else:
+            _input = t
         for block in self.blocks:
-            y = block(y, q)
+            y = block(y, _input)
         y = self.norm(y)
         y = einops.rearrange(
             y, "c (h w) -> c h w", h=patch_height, w=patch_width

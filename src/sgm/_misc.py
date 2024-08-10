@@ -1,11 +1,22 @@
 import os
 import pickle
 import cloudpickle
+import jax
 import jax.numpy as jnp
+import equinox as eqx
 import numpy as np
 import einops
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+
+def count_params(model: eqx.Module) -> int:
+    return np.log10(
+        sum(
+            x.size for x in jax.tree_util.tree_leaves(model) 
+            if eqx.is_array(x)
+        )
+    )
 
 
 def imgs_to_grid(X):

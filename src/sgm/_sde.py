@@ -5,10 +5,8 @@ import jax.random as jr
 import equinox as eqx
 from jaxtyping import Key, Array
 
-Module = eqx.Module
 
-
-def get_beta_fn(beta_integral_fn: Union[Callable, Module]) -> Callable:
+def get_beta_fn(beta_integral_fn: Union[Callable, eqx.Module]) -> Callable:
     """ Turn a beta integral into a beta function """
     def _beta_fn(t):
         _, beta = jax.jvp(
@@ -36,7 +34,7 @@ class SDE(eqx.Module):
     t1: float
     N: int
 
-    def __init__(self, dt: float = 0.1, t0: float = 0., t1: float = 1., N: int = 1000):
+    def __init__(self, dt: float = 0.01, t0: float = 0., t1: float = 1., N: int = 1000):
         """
             Construct an SDE.
         """
@@ -93,7 +91,7 @@ class SDE(eqx.Module):
         G = diffusion * jnp.sqrt(jnp.atleast_1d(self.dt))
         return f, G
 
-    def reverse(self, score_fn: Module, probability_flow: bool = False) -> Self:
+    def reverse(self, score_fn: eqx.Module, probability_flow: bool = False) -> Self:
         """
             Create the reverse-time SDE/ODE.
 
@@ -103,7 +101,12 @@ class SDE(eqx.Module):
         """
         sde_fn = self.sde
         discretize_fn = self.discretize
-        _beta_integral_fn = self.beta_integral_fn
+
+        if isinstance(self, (VPSDE, SubVPSDE)):
+            _sde_fn = self.beta_integral_fn 
+        if isinstance(self, VESDE):
+            _sde_fn = self.sigma_fn
+
         _dt = self.dt
         _t0 = self.t0
         _t1 = self.t1
@@ -117,14 +120,15 @@ class SDE(eqx.Module):
                 self.N = _N
                 self.probability_flow = probability_flow
                 super().__init__(
-                    _beta_integral_fn, dt=_dt, t0=_t0, t1=_t1, N=_N
+                    _sde_fn, dt=_dt, t0=_t0, t1=_t1, N=_N # _beta_integral_fn
                 ) # **vars(self.__class__)
 
             def sde(
                 self, 
                 x: Array, 
                 t: Union[float, Array], 
-                q: Optional[Array] = None
+                q: Optional[Array] = None,
+                a: Optional[Array] = None
             ) -> Tuple[Array, Array]:
                 """ 
                     Create the drift and diffusion functions for the reverse SDE/ODE. 
@@ -137,7 +141,7 @@ class SDE(eqx.Module):
                 """
                 coeff = 0.5 if self.probability_flow else 1.
                 drift, diffusion = sde_fn(x, t)
-                score = score_fn(t, x, q)
+                score = score_fn(t, x, q, a)
                 # Drift coefficient of reverse SDE and probability flow only different by a factor
                 drift = drift - jnp.square(diffusion) * score * coeff
                 # Set the diffusion function to zero for ODEs (dw=0)
@@ -148,11 +152,12 @@ class SDE(eqx.Module):
                 self, 
                 x: Array, 
                 t: Union[float, Array],
-                q: Array
+                q: Optional[Array] = None,
+                a: Optional[Array] = None
             ) -> Tuple[Array, Array]:
                 """ Create discretized iteration rules for the reverse diffusion sampler. """
                 f, G = discretize_fn(x, t)
-                rev_f = f - G ** 2. * score_fn(t, x, q) * (0.5 if self.probability_flow else 1.)
+                rev_f = f - G ** 2. * score_fn(t, x, q, a) * (0.5 if self.probability_flow else 1.)
                 rev_G = jnp.zeros_like(G) if self.probability_flow else G
                 return rev_f, rev_G
 
@@ -182,19 +187,9 @@ class VPSDE(SDE):
             N: number of discretization steps
         """
         super().__init__(dt=dt, t0=t0, t1=t1, N=N)
-        self.beta_integral_fn = beta_integral_fn
+        self.beta_integral_fn = beta_integral_fn # NOTE: these objects are for VP only, set attribute 'sde' that is dependent on these together! Not weight function though
         self.beta_fn = get_beta_fn(beta_integral_fn)
         self.weight_fn = weight_fn
-
-        # self.weight = get_weight_fn(weight)
-        # N = int((t1 - t0) / dt)
-        # Betas at each time point; not assuming linear beta_fn
-        # self.discrete_betas = jax.vmap(self.beta_fn)(jnp.linspace(t0, t1, N))
-        # DDPM parameters at each t
-        # self.alphas = 1. - self.discrete_betas
-        # self.alphas_cumprod = jnp.cumprod(self.alphas, axis=0)
-        # self.sqrt_alphas_cumprod = jnp.sqrt(self.alphas_cumprod)
-        # self.sqrt_1m_alphas_cumprod = jnp.sqrt(1. - self.alphas_cumprod)
 
     def sde(self, x, t):
         """ 
@@ -216,9 +211,9 @@ class VPSDE(SDE):
 
             -> return mean * x and std (not var?)
         """
-        log_mean_coeff = self.beta_integral_fn(t)
-        mean = jnp.exp(-0.5 * log_mean_coeff) * x 
-        std = jnp.sqrt(-jnp.expm1(-log_mean_coeff)) 
+        beta_integral = self.beta_integral_fn(t)
+        mean = jnp.exp(-0.5 * beta_integral) * x 
+        std = jnp.sqrt(-jnp.expm1(-beta_integral)) 
         return mean, std
 
     def weight(self, t, likelihood_weight=False):
@@ -276,15 +271,6 @@ class SubVPSDE(SDE):
         self.beta_fn = get_beta_fn(beta_integral_fn)
         self.weight_fn = weight_fn
 
-        # N = int((t1 - t0) / dt)
-        # # Betas at each time point; not assuming linear beta_fn
-        # self.discrete_betas = jax.vmap(self.beta_fn)(jnp.linspace(t0, t1, N))
-        # # DDPM parameters
-        # self.alphas = 1. - self.discrete_betas
-        # self.alphas_cumprod = jnp.cumprod(self.alphas, axis=0)
-        # self.sqrt_alphas_cumprod = jnp.sqrt(self.alphas_cumprod)
-        # self.sqrt_1m_alphas_cumprod = jnp.sqrt(1. - self.alphas_cumprod)
-
     def sde(self, x, t):
         """ 
             dx = f(x, t) * dt + g(t) * dw 
@@ -292,8 +278,8 @@ class SubVPSDE(SDE):
         """
         beta_t = self.beta_fn(t)
         drift = -0.5 * beta_t * x
-        # Bug in SDE CODE? SHOULD BE -2. * BETA INTEGRAL?
-        diffusion = jnp.sqrt(beta_t * -jnp.expm1(-2. * self.beta_integral_fn(t))) # -jnp.exp1m instead?
+        # NOTE: Bug in Song++ code (should be -2. * BETA INTEGRAL)
+        diffusion = jnp.sqrt(beta_t * -jnp.expm1(-2. * self.beta_integral_fn(t))) 
         return drift, diffusion
 
     def marginal_prob(self, x, t):
@@ -304,13 +290,13 @@ class SubVPSDE(SDE):
                 mu(x(0), t) = x(0) * exp(-0.5 * int[beta(s)])
                 sigma^2(t) = [1 - exp(-int[beta(s)])]^2  
         """
-        log_mean_coeff = self.beta_integral_fn(t)
-        mean = jnp.exp(-0.5 * log_mean_coeff) * x 
-        std = jnp.sqrt(jnp.square(-jnp.expm1(-2. * log_mean_coeff))) # Eq 29 https://arxiv.org/pdf/2011.13456.pdf
+        beta_integral = self.beta_integral_fn(t)
+        mean = jnp.exp(-0.5 * beta_integral) * x 
+        std = jnp.sqrt(jnp.square(-jnp.expm1(-2. * beta_integral))) # Eq 29 https://arxiv.org/pdf/2011.13456.pdf
         return mean, std
 
     def weight(self, t, likelihood_weight=False):
-        # likelihood weighting: above Eq 8 https://arxiv.org/pdf/2101.09258.pdf
+        # Likelihood weighting: above Eq 8 https://arxiv.org/pdf/2101.09258.pdf
         if self.weight_fn is not None and not likelihood_weight:
             weight = self.weight_fn(t)
         else:
@@ -327,63 +313,6 @@ class SubVPSDE(SDE):
         return jax.vmap(_get_log_prob_fn(scale=1.))(z)
 
 
-class VESDE2(SDE):
-    def __init__(self, sigma, dt=0.1, t0=0., t1=1.):
-        """
-            Construct a Variance Exploding SDE.
-
-            Args:
-            sigma: default variance value
-            dt: timestep width
-        """
-        super().__init__(dt=dt, t0=t0, t1=t1)
-        self.N = int((t1 - t0) / dt)
-        self.sigma = sigma
-        self.sigma_fn = lambda t: self.sigma ** t
-        self.discrete_sigmas = jax.vmap(self.sigma_fn)(jnp.linspace(t0, t1, self.N))
-        self.t1 = t1
-
-    def sde(self, x, t):
-        drift = jnp.zeros_like(x)
-        diffusion = self.sigma_fn(t) 
-        return drift, diffusion
-
-    def marginal_prob(self, x, t):
-        """ x(t) ~ G[x(t)|x(0), [sigma^2(t) - sigma^2(0)] * I """
-        # This assumes sigma ** 5 sigma_fn always..
-        std = jnp.sqrt(
-            # This is sqrt(d\dt[sigma ** t])?
-            # d\dt[sigma ** (2 * t)] 
-            # = log(sigma ** 2) * sigma ** (2 * t) 
-            # = 2 * log(sigma) * sigma ** (2 * t) 
-            (self.sigma ** (2. * t) - 1.) / (2. * jnp.log(self.sigma))
-        )
-        return x, std
-
-    def weight(self, t, likelihood_weight=False):
-        weight = self.sigma_fn(t) # Same for likelihood weighting
-        return weight
-
-    def prior_sample(self, key, shape):
-        return jr.normal(key, shape) * self.sigma_fn(self.t1)
-
-    def prior_log_prob(self, z):
-        return jax.vmap(_get_log_prob_fn(scale=self.sigma_max))(z)
-
-    def discretize(self, x, t):
-        """ SMLD(NCSN) discretization. """
-        timestep = (t * (self.N - 1) / self.T)
-        sigma = self.discrete_sigmas[timestep]
-        adjacent_sigma = jnp.where(
-            timestep == 0., 
-            jnp.zeros_like(t), 
-            self.discrete_sigmas[timestep - 1]
-        )
-        f = jnp.zeros_like(x)
-        G = jnp.sqrt(sigma ** 2. - adjacent_sigma ** 2.)
-        return f, G
-
-
 def get_diffusion_fn(sigma_fn):
     """ Get diffusion coefficient function for VE SDE """
     def _diffusion_fn(t):
@@ -393,55 +322,75 @@ def get_diffusion_fn(sigma_fn):
             tangents=(jnp.ones_like(t),),
             has_aux=False
         )
-        return jnp.sqrt(sigma)
+        return jnp.sqrt(sigma) # = sqrt(d[sigma(t)]/dt) ?
     return _diffusion_fn
 
 
 class VESDE(SDE):
-    def __init__(self, sigma_fn, dt=0.1, t0=0., t1=1.):
+    sigma_fn: Callable
+    weight_fn: Callable
+
+    def __init__(
+        self, 
+        sigma_fn, 
+        weight_fn: Optional[Callable] = None, 
+        dt: float = 0.1, 
+        t0: float = 0., 
+        t1: float = 1.,
+        N: int = 1000
+    ):
         """
             Construct a Variance Exploding SDE.
+
+            dx = sqrt(d[(sigma_fn(t)) ** 2]/dt)
 
             Args:
             sigma: default variance value
             dt: timestep width
         """
-        super().__init__(dt=dt, t0=t0, t1=t1)
-        self.N = int((t1 - t0) / dt)
+        super().__init__(dt=dt, t0=t0, t1=t1, N=N)
         self.sigma_fn = sigma_fn
-        self.diffusion_fn = get_diffusion_fn(sigma_fn)
-        self.discrete_sigmas = jax.vmap(self.sigma_fn)(jnp.linspace(t0, t1, self.N))
-        self.t1 = t1
+        self.weight_fn = weight_fn
 
     def sde(self, x, t):
-        """
-            SDE:
-                dx = sqrt(d[sigma^2(t)]/dt) * dw
-        """
         drift = jnp.zeros_like(x)
-        diffusion = self.diffusion_fn(t) #self.sigma_fn(t) 
+        _, diffusion = jax.jvp(
+            self.sigma_fn, 
+            primals=(t,), 
+            tangents=(jnp.ones_like(t),),
+            has_aux=False
+        )
+        # diffusion = self.sigma_fn(t) 
         return drift, diffusion
 
     def marginal_prob(self, x, t):
         """ 
             SDE:
                 dx = sqrt(d[sigma^2(t)]/dt) * dw
-            sigma^t = exp(t) for example
+            sigma(t) = exp(t) for example
                 x(t) ~ G[x(t)|x(0), [sigma^2(t) - sigma^2(0)] * I 
+
+            x(t) ~ G[x(t)|x(0), [sigma^2(t) - sigma^2(0)] * I
         """
         # This assumes sigma ** 5 sigma_fn always..
-        std = jnp.sqrt(self.sigma_fn(t) - self.sigma_fn(self.t0))
-        return x, std
+        std = jnp.sqrt(jnp.square(self.sigma_fn(t)) - jnp.square(self.sigma_fn(0.))) # NOTE: variance here or std?
+        return x, std # Mean is always x for VE, std = sigma_fn(t)
 
     def weight(self, t, likelihood_weight=False):
-        weight = self.sigma_fn(t) # Same for likelihood weighting
+        if self.weight_fn is not None and not likelihood_weight:
+            weight = self.weight_fn(t)
+        else:
+            if likelihood_weight:
+                weight = jnp.square(self.sigma_fn(t))
+            else:
+                weight = jnp.square(self.sigma_fn(t)) # Same for likelihood weighting
         return weight
 
     def prior_sample(self, key, shape):
-        return jr.normal(key, shape) * self.sigma_fn(self.t1)
+        return jr.normal(key, shape) * self.sigma_fn(self.t1) # NOTE: std at T=1 not necessarily one 
 
     def prior_log_prob(self, z):
-        return jax.vmap(_get_log_prob_fn(scale=self.sigma_max))(z)
+        return jax.vmap(_get_log_prob_fn(scale=self.sigma_fn(self.t1)))(z)
 
     def discretize(self, x, t):
         """ SMLD(NCSN) discretization. """
@@ -457,60 +406,49 @@ class VESDE(SDE):
         return f, G
 
 
-# if __name__ == "__main__":
-#     import matplotlib.pyplot as plt 
-#     import numpy as np
-#     """
-#         TODO: 
-#         - replace init'ing beta_min, beta_max with t0, t1 and a beta_fn(t)
-#         - beta_fn should actually depend on a beta_int time schedule, autodiff to get beta(t)
+if __name__ == "__main__":
+    import os 
+    import matplotlib.pyplot as plt 
+    import numpy as np
 
-#         - replace all 1 - exp(...) with jnp.expm1(-(...))
-#     """
+    figs_dir = "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_lib/sgm/figs/"
 
-#     # Test expand() function
-#     x = jnp.ones((1, 32, 32))
-#     y = expand(jnp.ones((1,)), x)
-#     # assert x.shape == y.shape
-#     print(y.shape)
+    # Plot SDEs with time
+    beta_integral_fn = lambda t: t
+    beta_fn = get_beta_fn(beta_integral_fn)
+    sigma_fn = lambda t: jnp.exp(t)
 
-#     # Plot SDEs with time
-#     beta_integral = lambda t: t ** 2. + t
-#     beta_fn = get_beta_fn(beta_integral)
-#     # ve_sde = VESDE(beta_integral)
-#     times = dict(t0=0., t1=20., dt=0.1)
-#     vp_sde = VPSDE(beta_integral, **times)
-#     ve_sde = VESDE(sigma=25.)
-#     subvp_sde = SubVPSDE(beta_integral, **times)
+    times = dict(t0=0., t1=4., dt=0.1)
 
-#     x = jnp.ones((1,))
-#     T = jnp.linspace(1e-5, 1., 100)
+    vp_sde = VPSDE(beta_integral_fn, **times)
+    ve_sde = VESDE(sigma_fn=sigma_fn)
+    subvp_sde = SubVPSDE(beta_integral_fn, **times)
 
-#     def get_sde_drift_and_diffusion_fn(sde):
-#         return jax.vmap(sde.sde, in_axes=(None, 0))
+    x = jnp.ones((1,))
+    T = jnp.linspace(1e-5, times["t1"], 1000)
 
-#     def get_sde_mean_and_std(sde):
-#         return jax.vmap(sde.marginal_prob, in_axes=(None, 0))
+    def get_sde_drift_and_diffusion_fn(sde):
+        return jax.vmap(sde.sde, in_axes=(None, 0))
 
-#     fig, axs = plt.subplots(1, 4, figsize=(21., 4.))
-#     ax = axs[0]
-#     ax.plot(T, jax.vmap(beta_fn)(T), linestyle=":", label="beta")
-#     ax_ = ax.twinx()
-#     ax.legend()
-#     ax_.plot(T, jax.vmap(beta_integral)(T), label="integral")
-#     ax_.legend()
-#     plt.title("SDEs")
-#     for ax, _sde in zip(axs[1:], [ve_sde, vp_sde, subvp_sde]):
-#         mu, std = get_sde_mean_and_std(_sde)(x, T)
-#         # print(mu)
-#         # print(std)
-#         # print("\n")
-#         ax.set_title(str(_sde.__class__.__name__))
-#         ax.plot(T, mu, label="$\mu(t)$")
-#         ax.plot(T, std, label="$\sigma(t)$")
-#     ax.legend()
-#     plt.savefig("sdes.png")
-#     plt.close()
+    def get_sde_mean_and_std(sde):
+        return jax.vmap(sde.marginal_prob, in_axes=(None, 0))
+
+    fig, axs = plt.subplots(1, 4, figsize=(21., 4.))
+    ax = axs[0]
+    ax.plot(T, jax.vmap(beta_fn)(T), linestyle=":", label="beta")
+    ax_ = ax.twinx()
+    ax.legend()
+    ax_.plot(T, jax.vmap(beta_integral_fn)(T), label="integral")
+    ax_.legend()
+    plt.title("SDEs")
+    for ax, _sde in zip(axs[1:], [ve_sde, vp_sde, subvp_sde]):
+        mu, std = get_sde_mean_and_std(_sde)(x, T)
+        ax.set_title(str(_sde.__class__.__name__))
+        ax.plot(T, mu, label=r"$\mu(t)$")
+        ax.plot(T, std, label=r"$\sigma(t)$")
+    ax.legend()
+    plt.savefig(os.path.join(figs_dir, "sdes.png"))
+    plt.close()
 
 #     if 0:
 #         """ Reverse SDE has no marginal prob fn because it is the same in either direction? only the SDE reverses... """

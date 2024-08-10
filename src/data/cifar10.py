@@ -8,7 +8,7 @@ def cifar10(key: jr.PRNGKey) -> ScalerDataset:
     key_train, key_valid = jr.split(key)
     n_pix = 32 # Native resolution for CIFAR10 
     data_shape = (3, n_pix, n_pix)
-    context_shape = (1,)
+    parameter_dim = 1
 
     scaler = Scaler(x_min=0., x_max=1.)
 
@@ -43,13 +43,18 @@ def cifar10(key: jr.PRNGKey) -> ScalerDataset:
         transform=valid_transform
     )
 
-    train_dataloader = _TorchDataLoader(train_dataset, key=key_train)
-    valid_dataloader = _TorchDataLoader(valid_dataset, key=key_valid)
+    train_dataloader = _TorchDataLoader(
+        train_dataset, data_shape, context_shape=None, parameter_dim=parameter_dim, key=key_train
+    )
+    valid_dataloader = _TorchDataLoader(
+        valid_dataset, data_shape, context_shape=None, parameter_dim=parameter_dim, key=key_valid
+    )
     return ScalerDataset(
         name="cifar10",
         train_dataloader=train_dataloader,
         valid_dataloader=valid_dataloader,
         data_shape=data_shape,
-        context_shape=context_shape,
+        parameter_dim=parameter_dim,
+        context_shape=None,
         scaler=scaler
     )

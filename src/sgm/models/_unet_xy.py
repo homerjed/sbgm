@@ -125,6 +125,7 @@ class ResnetBlock(eqx.Module):
     ]
     res_conv: eqx.nn.Conv2d
     attn: Optional[Residual]
+    a_dim: Optional[int]
 
     def __init__(
         self,
@@ -138,6 +139,7 @@ class ResnetBlock(eqx.Module):
         is_attn,
         heads,
         dim_head,
+        a_dim=None,
         *,
         key,
     ):
@@ -151,7 +153,11 @@ class ResnetBlock(eqx.Module):
 
         self.mlp_layers = [
             jax.nn.silu,
-            eqx.nn.Linear(time_emb_dim, dim_out, key=keys[0]),
+            eqx.nn.Linear(
+                time_emb_dim + a_dim if a_dim is not None else time_emb_dim, 
+                dim_out, 
+                key=keys[0]
+            ),
         ]
         self.block1_groupnorm = eqx.nn.GroupNorm(min(dim_in // 4, 32), dim_in)
         self.block1_conv = eqx.nn.Conv2d(dim_in, dim_out, 3, padding=1, key=keys[1])
@@ -207,8 +213,9 @@ class ResnetBlock(eqx.Module):
             )
         else:
             self.attn = None
+        self.a_dim = a_dim
 
-    def __call__(self, x, t, *, key):
+    def __call__(self, x, t, a=None, *, key):
         C, _, _ = x.shape
         # In DDPM, each set of resblocks ends with an up/down sampling. In
         # biggan there is a final resblock after the up/downsampling. In this
@@ -217,19 +224,20 @@ class ResnetBlock(eqx.Module):
         # https://github.dev/yang-song/score_sde/blob/main/models/layerspp.py
         h = jax.nn.silu(self.block1_groupnorm(x))
         if self.up or self.down:
-            h = self.scaling(h)  # pyright: ignore
-            x = self.scaling(x)  # pyright: ignore
+            h = self.scaling(h) # pyright: ignore
+            x = self.scaling(x) # pyright: ignore
         h = self.block1_conv(h)
 
-        # NOTE: add alpha/pi conditioning here
         for layer in self.mlp_layers:
-            t = layer(t) # 
-            # Add alpha conditioning here
-            # if a is not None:
-            #     if isinstance(layer, eqx.nn.Linear):
-            #         t = layer(jnp.concatenate([t, a])) 
-            #     else:
-            #         t = layer(t)
+            # Add parameter conditioning here
+            if isinstance(layer, eqx.nn.Linear):
+                if a is not None and self.a_dim is not None:
+                    _input = jnp.concatenate([t, a]) 
+                else:
+                    _input = t
+            else:
+                _input = t
+            t = layer(_input)
         h = h + t[..., jnp.newaxis, jnp.newaxis]
         for layer in self.block2_layers:
             # Precisely 1 dropout layer in block2_layers which requires a key.
@@ -256,7 +264,8 @@ class UNetXY(eqx.Module):
     mid_block2: ResnetBlock
     ups_res_blocks: list[list[ResnetBlock]]
     final_conv_layers: list[Union[Callable, eqx.nn.LayerNorm, eqx.nn.Conv2d]]
-    # condition: eqx.Module
+    q_dim: int
+    a_dim: int
 
     def __init__(
         self,
@@ -269,12 +278,12 @@ class UNetXY(eqx.Module):
         dropout_rate: float,
         num_res_blocks: int,
         attn_resolutions: list[int],
-        condition_dim: Optional[int] = None,
+        q_dim: Optional[int] = None, # Number of channels in conditioning map
+        a_dim: Optional[int] = None, # Number of parameters in conditioning 
         *,
         key: jr.PRNGKey,
     ):
         keys = jr.split(key, 7)
-        # del key
 
         data_channels, in_height, in_width = data_shape
 
@@ -283,15 +292,15 @@ class UNetXY(eqx.Module):
 
         self.time_pos_emb = SinusoidalPosEmb(hidden_size)
         self.mlp = eqx.nn.MLP(
-            hidden_size, # hidden_size + context_dim if context_dim is not None else hidden_size
+            hidden_size + a_dim if a_dim is not None else hidden_size,
             hidden_size,
-            4 * hidden_size,
-            1,
+            width_size=4 * hidden_size,
+            depth=1,
             activation=jax.nn.silu,
             key=keys[0],
         )
         self.first_conv = eqx.nn.Conv2d(
-            data_channels + 1 if condition_dim is not None else data_channels, # This needs to be channel dim of d_m map, not condition_dim
+            data_channels + q_dim if q_dim is not None else data_channels, 
             hidden_size, 
             kernel_size=3, 
             padding=1, 
@@ -374,6 +383,7 @@ class UNetXY(eqx.Module):
             is_attn=True,
             heads=heads,
             dim_head=dim_head,
+            a_dim=a_dim,
             key=keys[3],
         )
         self.mid_block2 = ResnetBlock(
@@ -387,6 +397,7 @@ class UNetXY(eqx.Module):
             is_attn=False,
             heads=heads,
             dim_head=dim_head,
+            a_dim=a_dim,
             key=keys[4],
         )
 
@@ -460,12 +471,24 @@ class UNetXY(eqx.Module):
             jax.nn.silu,
             eqx.nn.Conv2d(hidden_size, data_channels, 1, key=keys[6]),
         ]
+        self.q_dim = q_dim 
+        self.a_dim = a_dim 
 
-    def __call__(self, t, y, q, *, key=None): # t, y, q, a, *, key=None
+    def __call__(self, t, y, q=None, a=None, *, key=None):
         t = self.time_pos_emb(t)
-        t = self.mlp(t) # jnp.concatenate([t, a]) if a is not None else t
+
+        if self.a_dim is not None and a is not None:
+            _input = jnp.concatenate([t, a])
+        else:
+            _input = t
+        t = self.mlp(_input) 
+
         # Stack d_g, d_m on channel axis
-        h = self.first_conv(jnp.concatenate([y, q]))
+        if self.q_dim is not None and q is not None:
+            _input = jnp.concatenate([y, q])
+        else:
+            _input = y
+        h = self.first_conv(_input)
 
         # Downsampling blocks
         hs = [h]
@@ -477,9 +500,9 @@ class UNetXY(eqx.Module):
 
         # Middle blocks
         key, subkey = key_split_allowing_none(key)
-        h = self.mid_block1(h, t, key=subkey) # (h, t, a, key=subkey)
+        h = self.mid_block1(h, t, a=a, key=subkey) 
         key, subkey = key_split_allowing_none(key)
-        h = self.mid_block2(h, t, key=subkey) # (h, t, a, key=subkey)
+        h = self.mid_block2(h, t, a=a, key=subkey) 
 
         # Upsampling blocks
         for res_blocks in self.ups_res_blocks:
@@ -493,5 +516,14 @@ class UNetXY(eqx.Module):
         assert len(hs) == 0
 
         for layer in self.final_conv_layers:
+            # Add conditioning map to final output layer
+            # if isinstance(layer, eqx.nn.Conv2d):
+            #     if self.q_dim is not None and q is not None:
+            #         _input = jnp.concatenate([h, q])
+            #     else:
+            #         _input = h
+            #     h = layer(_input)
+            # else:
+            #     h = layer(h)
             h = layer(h)
         return h

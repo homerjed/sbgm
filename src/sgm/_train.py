@@ -35,6 +35,7 @@ def single_loss_fn(
     sde: SDE,
     x: Array, 
     q: Array, 
+    a: Array, 
     t: Array, 
     key: Key
 ) -> Array:
@@ -42,7 +43,7 @@ def single_loss_fn(
     mean, std = sde.marginal_prob(x, t) # std = jnp.sqrt(jnp.maximum(std, 1e-5)) 
     noise = jr.normal(key_noise, x.shape)
     y = mean + std * noise
-    y_ = model(t, y, q, key=key_apply) # Inference is true in validation
+    y_ = model(t, y, q=q, a=a, key=key_apply) # Inference is true in validation
     return sde.weight(t) * jnp.square(y_ + noise / std).mean()
 
 
@@ -64,6 +65,7 @@ def batch_loss_fn(
     sde: SDE,
     x: Array, 
     q: Array, 
+    a: Array,
     key: Key
 ) -> Array:
     batch_size = x.shape[0]
@@ -71,7 +73,7 @@ def batch_loss_fn(
     keys_L = jr.split(key_L, batch_size)
     t = sample_time(key_t, sde.t0, sde.t1, batch_size)
     loss_fn = jax.vmap(partial(single_loss_fn, model, sde))
-    return loss_fn(x, q, t, keys_L).mean()
+    return loss_fn(x, q, a, t, keys_L).mean()
 
 
 @eqx.filter_jit
@@ -80,13 +82,14 @@ def make_step(
     sde: SDE,
     x: Array, 
     q: Array, 
+    a: Array, 
     key: Key, 
     opt_state: OptState, 
     opt_update: TransformUpdateFn
 ) -> Tuple[Array, Model, Key, OptState]:
     model = eqx.tree_inference(model, False)
     loss_fn = eqx.filter_value_and_grad(batch_loss_fn)
-    loss, grads = loss_fn(model, sde, x, q, key)
+    loss, grads = loss_fn(model, sde, x, q, a, key)
     updates, opt_state = opt_update(grads, opt_state)
     model = eqx.apply_updates(model, updates)
     key, _ = jr.split(key)
@@ -99,8 +102,9 @@ def evaluate(
     sde: SDE, 
     x: Array, 
     q: Array, 
+    a: Array, 
     key: Key
 ) -> Array:
     model = eqx.tree_inference(model, True)
-    loss = batch_loss_fn(model, sde, x, q, key)
+    loss = batch_loss_fn(model, sde, x, q, a, key)
     return loss 

@@ -247,6 +247,7 @@ class UNet(eqx.Module):
     ups_res_blocks: list[list[ResnetBlock]]
     final_conv_layers: list[Union[Callable, eqx.nn.LayerNorm, eqx.nn.Conv2d]]
     condition: eqx.Module
+    final_activation: Optional[Callable]
 
     def __init__(
         self,
@@ -259,7 +260,8 @@ class UNet(eqx.Module):
         dropout_rate: float,
         num_res_blocks: int,
         attn_resolutions: list[int],
-        condition_dim: Optional[int] = None,
+        a_dim: Optional[int] = None,
+        final_activation: Optional[Callable] = jax.nn.tanh,
         *,
         key,
     ):
@@ -281,16 +283,16 @@ class UNet(eqx.Module):
             key=keys[0],
         )
         self.first_conv = eqx.nn.Conv2d(
-            data_channels + 1 if condition_dim is not None else data_channels,
+            data_channels + a_dim if a_dim is not None else data_channels,
             hidden_size, 
             kernel_size=3, 
             padding=1, 
             key=keys[1]
         )
-        if condition_dim is not None:
-            if condition_dim != 1:
+        if a_dim is not None:
+            if a_dim != 1:
                 key, _ = jr.split(key)
-                self.condition = eqx.nn.Linear(condition_dim, 1, key=key)
+                self.condition = eqx.nn.Linear(a_dim, 1, key=key)
             else:
                 self.condition = lambda x: x
         else:
@@ -458,18 +460,19 @@ class UNet(eqx.Module):
             jax.nn.silu,
             eqx.nn.Conv2d(hidden_size, data_channels, 1, key=keys[6]),
         ]
+        self.final_activation = final_activation
 
-    def __call__(self, t, y, q, *, key=None):
+    def __call__(self, t, y, q=None, a=None, *, key=None):
         # Typically a parameter set, generalise to images also though....
         if self.condition is not None: 
             _, h, w = y.shape
-            q = repeat(
-                self.condition(q), "1 -> 1 h w", h=h, w=w
+            a = repeat(
+                self.condition(a), "1 -> 1 h w", h=h, w=w
             )
         t = self.time_pos_emb(t)
         t = self.mlp(t)
         h = self.first_conv(
-            jnp.concatenate([y, q]) if self.condition else y
+            jnp.concatenate([y, a]) if self.condition else y
         )
         hs = [h]
         for res_blocks in self.down_res_blocks:
@@ -489,10 +492,12 @@ class UNet(eqx.Module):
                 if res_block.up:
                     h = res_block(h, t, key=subkey)
                 else:
-                    h = res_block(jnp.concatenate((h, hs.pop()), axis=0), t, key=subkey)
+                    h = res_block(
+                        jnp.concatenate((h, hs.pop()), axis=0), t, key=subkey
+                    )
 
         assert len(hs) == 0
 
         for layer in self.final_conv_layers:
             h = layer(h)
-        return h
+        return self.final_activation(h) if self.final_activation is not None else h

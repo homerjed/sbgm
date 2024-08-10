@@ -1,31 +1,22 @@
-from typing import Tuple, Callable, Optional, Sequence
+from typing import Tuple, Callable, Optional, Sequence, Union
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 import equinox as eqx
 import diffrax as dfx
+from jaxtyping import Key, Array
 
 from ._sde import SDE
 
-Array = jax.Array
-Key = jr.PRNGKey
 Module = eqx.Module
-
-
-"""
-    ODE objects
-    - ODE terms from score network (general to all SDEs -> ODEs)
-    - log_likelihood function p(x|q), depends on an SDE
-"""
 
 
 def get_solver() -> dfx.AbstractSolver:
     return dfx.Tsit5(scan_kind="bounded")
 
-# from jaxtyping import Float
 
 def logp_approx(
-    t: float | Array, 
+    t: Union[float, Array], 
     y: Array, 
     args: Tuple[Array, Array, Module, Sequence[int]]
 ) -> Tuple[Array, Array]:
@@ -56,7 +47,7 @@ def logp_approx(
 
 
 def logp_exact(
-    t: float | Array, 
+    t: Union[float, Array], 
     y: Array, 
     args: Tuple[None, Array, Module, Sequence[int]]
 ) -> Tuple[Array, Array]:
@@ -94,7 +85,7 @@ def log_likelihood(
 
     reverse_sde = sde.reverse(score_network, probability_flow=True)
 
-    def func(y: Array, t: float | Array, q: Array) -> Array:
+    def func(y: Array, t: Union[float, Array], q: Array) -> Array:
         print("func ytq", y.shape, t.shape, q.shape)
         t = jnp.atleast_1d(t)
         drift, _ = reverse_sde.sde(y, t, q)
