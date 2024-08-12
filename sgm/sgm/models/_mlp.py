@@ -1,4 +1,4 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Union
 import jax
 import jax.numpy as jnp
 import jax.random as jr
@@ -29,10 +29,10 @@ class Linear(eqx.Module):
 
 
 class ResidualNetwork(eqx.Module):
-    _in: eqx.nn.Linear
-    layers: Tuple[eqx.Module]
+    _in: Linear
+    layers: Tuple[Linear]
     dropouts: Tuple[eqx.nn.Dropout]
-    _out: eqx.nn.Linear
+    _out: Linear
     activation: Callable
 
     def __init__(

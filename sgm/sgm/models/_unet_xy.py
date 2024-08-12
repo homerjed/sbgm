@@ -1,27 +1,23 @@
 import math
 from collections.abc import Callable
 from typing import Optional, Union
-
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-from einops import rearrange, repeat
-
 import equinox as eqx
-
-
-""" UNet for dgdm data where conditioning is an image plus some parameters. """
+from jaxtyping import Key, Array
+from einops import rearrange
 
 
 class SinusoidalPosEmb(eqx.Module):
-    emb: jax.Array
+    emb: Array
 
-    def __init__(self, dim):
+    def __init__(self, dim: int):
         half_dim = dim // 2
         emb = math.log(10000) / (half_dim - 1)
         self.emb = jnp.exp(jnp.arange(half_dim) * -emb)
 
-    def __call__(self, x):
+    def __call__(self, x: Array) -> Array:
         emb = x * self.emb
         emb = jnp.concatenate((jnp.sin(emb), jnp.cos(emb)), axis=-1)
         return emb
@@ -35,10 +31,10 @@ class LinearTimeSelfAttention(eqx.Module):
 
     def __init__(
         self,
-        dim,
-        key,
-        heads=4,
-        dim_head=32,
+        dim: int,
+        key: Key,
+        heads: int = 4,
+        dim_head: int = 32
     ):
         keys = jax.random.split(key, 2)
         self.group_norm = eqx.nn.GroupNorm(min(dim // 4, 32), dim)
@@ -47,7 +43,7 @@ class LinearTimeSelfAttention(eqx.Module):
         self.to_qkv = eqx.nn.Conv2d(dim, hidden_dim * 3, 1, key=keys[0])
         self.to_out = eqx.nn.Conv2d(hidden_dim, dim, 1, key=keys[1])
 
-    def __call__(self, x):
+    def __call__(self, x: Array) -> Array:
         c, h, w = x.shape
         x = self.group_norm(x)
         qkv = self.to_qkv(x)
@@ -143,7 +139,7 @@ class ResnetBlock(eqx.Module):
         *,
         key,
     ):
-        keys = jax.random.split(key, 7)
+        keys = jr.split(key, 7)
         self.dim_out = dim_out
         self.is_biggan = is_biggan
         self.up = up
@@ -215,7 +211,14 @@ class ResnetBlock(eqx.Module):
             self.attn = None
         self.a_dim = a_dim
 
-    def __call__(self, x, t, a=None, *, key):
+    def __call__(
+        self, 
+        x: Array, 
+        t: Union[float, Array], 
+        a: Array = None, 
+        *, 
+        key: Key
+    ) -> Array:
         C, _, _ = x.shape
         # In DDPM, each set of resblocks ends with an up/down sampling. In
         # biggan there is a final resblock after the up/downsampling. In this
@@ -474,7 +477,15 @@ class UNetXY(eqx.Module):
         self.q_dim = q_dim 
         self.a_dim = a_dim 
 
-    def __call__(self, t, y, q=None, a=None, *, key=None):
+    def __call__(
+        self, 
+        t: Union[float, Array], 
+        y: Array, 
+        q: Optional[Array] = None, 
+        a: Optional[Array] = None, 
+        *, 
+        key: Optional[Key] = None
+    ) -> Array:
         t = self.time_pos_emb(t)
 
         if self.a_dim is not None and a is not None:
