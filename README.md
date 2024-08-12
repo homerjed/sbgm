@@ -38,6 +38,7 @@ $$
 but note that maximum-likelihood training is prohibitively expensive for SDE based diffusion models.
 
 ### Usage
+Install via
 ```
 pip install -e .
 ```
@@ -51,6 +52,7 @@ python main.py
 * Parallelised exact and approximate log-likelihood calculations,
 * UNet and transformer score network implementations,
 * VP, SubVP and VE SDEs (neural network $\beta(t)$ functions are on the list!),
+* Multi-modal conditioning (basically just optional parameter and image conditioning methods),
 * Multi-device training and sampling.
 
 ### Samples
