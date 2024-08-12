@@ -1,18 +1,22 @@
-from typing import Tuple, Callable, Sequence
+from typing import Tuple, Callable
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 import equinox as eqx
-import numpy as np 
-
-Array = jax.Array
+from jaxtyping import Key, Array
 
 
 class Linear(eqx.Module):
-    weight: jax.Array
-    bias: jax.Array
+    weight: Array
+    bias: Array
 
-    def __init__(self, in_size, out_size, *, key):
+    def __init__(
+        self, 
+        in_size: int, 
+        out_size: int, 
+        *, 
+        key: Key
+    ):
         lim = jnp.sqrt(1. / (in_size + 1.))
         key_w, _ = jr.split(key)
         self.weight = jr.truncated_normal(
@@ -20,7 +24,7 @@ class Linear(eqx.Module):
         ) * lim
         self.bias = jnp.zeros((out_size,))
 
-    def __call__(self, x):
+    def __call__(self, x: Array) -> Array:
         return self.weight @ x + self.bias
 
 
@@ -38,9 +42,9 @@ class ResidualNetwork(eqx.Module):
         depth: int, 
         y_dim: int, 
         activation: Callable,
-        dropout_p: float =0.,
+        dropout_p: float = 0.,
         *, 
-        key: jr.PRNGKey
+        key: Key
     ):
         """ Time-embedding may be necessary """
         in_key, *net_keys, out_key = jr.split(key, 2 + depth)
@@ -66,11 +70,11 @@ class ResidualNetwork(eqx.Module):
     
     def __call__(
         self, 
-        t: float | Array, 
+        t: Union[float, Array], 
         x: Array, 
         y: Array, 
         *, 
-        key: jr.PRNGKey = None
+        key: Key = None
     ) -> Array:
         t = jnp.atleast_1d(t)
         xyt = jnp.concatenate([x, y, t])
