@@ -51,7 +51,7 @@ python main.py
 
 * Parallelised exact and approximate log-likelihood calculations,
 * UNet and transformer score network implementations,
-* VP, SubVP and VE SDEs (neural network $\beta(t)$ functions are on the list!),
+* VP, SubVP and VE SDEs (neural network $\beta(t)$ and $\sigma(t)$ functions are on the list!),
 * Multi-modal conditioning (basically just optional parameter and image conditioning methods),
 * Multi-device training and sampling.
 
