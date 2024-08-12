@@ -1,0 +1,12 @@
+jax
+equinox
+diffrax
+optax
+einops
+numpy
+matplotlib
+cloudpickle
+torch
+torchvision
+tqdm
+powerbox

@@ -22,7 +22,7 @@ setup(
         "optax",
         "einops",
         "numpy",
-        "matplotlib"
+        "matplotlib",
         "cloudpickle",
         "torch",
         "torchvision",
