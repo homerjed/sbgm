@@ -95,55 +95,26 @@ def get_opt(
     return getattr(optax, config.opt)(config.lr, **config.opt_kwargs)
 
 
-def main():
-    """
-        Fit a score-based diffusion model.
-    """
-    config = [
-        configs.MNISTConfig,
-        configs.GRFConfig,
-        configs.FlowersConfig,
-        configs.CIFAR10Config
-    ][0]
-
-    root_dir = "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_lib/sgm/"
-
-    key = jr.key(config.seed)
-    data_key, model_key, train_key, sample_key, valid_key = jr.split(key, 5)
-
-    # Non-config args
-    dataset          = get_dataset(config.dataset_name, data_key, config)
-    data_shape       = dataset.data_shape
-    context_shape    = dataset.context_shape
-    parameter_dim    = dataset.parameter_dim
-    opt              = get_opt(config)
-    sharding         = sgm.shard.get_sharding()
-    reload_opt_state = False # Restart training or not
-
-    # Diffusion model 
-    model = get_model(
-        model_key, 
-        config.model_type, 
-        data_shape, 
-        context_shape, 
-        parameter_dim,
-        config
-    )
-    # SDE, get getattr(sgm.sde, config.sde)
-    # sde = get_sde(config)
-    sde = sgm.sde.VESDE(
-        # config.beta_integral, 
-        # lambda t: t ** 2.,
-        lambda t: 25. ** t - 1., #jnp.exp(t),
-        # weight_fn=lambda t: 1. - jnp.exp(-t),
-        dt=config.dt, 
-        t0=config.t0, 
-        t1=config.t1, 
-        N=config.N
-    ) 
+def train(
+    key, 
+    # Diffusion model and SDE
+    model, 
+    sde,
+    # Dataset
+    dataset,
+    # Experiment config
+    config,
+    # Reload optimiser or not
+    reload_opt_state=False,
+    # Sharding of devices to run on
+    sharding=None,
+    # Location to save model, figs, .etc in
+    save_dir=None,
+):
+    print(f"Training SGM with {config.sde} SDE on {config.dataset_name} dataset.")
 
     # Experiment and image save directories
-    exp_dir, img_dir = utils.make_dirs(root_dir, config)
+    exp_dir, img_dir = utils.make_dirs(save_dir, config)
 
     # Plot SDE over time 
     utils.plot_sde(sde, filename=os.path.join(exp_dir, "sde.png"))
@@ -165,9 +136,8 @@ def main():
         exp_dir, f"state_{dataset.name}_{config.model_type}.obj"
     )
 
-    print("Model n_params =", utils.count_params(model))
-
     # Reload optimiser and state if so desired
+    opt = get_opt(config)
     if not reload_opt_state:
         opt_state = opt.init(eqx.filter(model, eqx.is_inexact_array))
         start_step = 0
@@ -178,6 +148,8 @@ def main():
         opt, opt_state, start_step = state.values()
 
         print("Loaded model and optimiser state.")
+
+    train_key, sample_key, valid_key = jr.split(key, 3)
 
     train_total_value = 0
     valid_total_value = 0
@@ -272,6 +244,54 @@ def main():
 
                 # Plot losses etc
                 utils.plot_metrics(train_losses, valid_losses, dets, step, exp_dir)
+    return model
+
+
+def main():
+    """
+        Fit a score-based diffusion model.
+    """
+    config = [
+        configs.MNISTConfig,
+        configs.GRFConfig,
+        configs.FlowersConfig,
+        configs.CIFAR10Config
+    ][0]
+
+    root_dir = "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_lib/sgm/"
+
+    key = jr.key(config.seed)
+    data_key, model_key, train_key = jr.split(key, 3)
+
+    dataset          = get_dataset(config.dataset_name, data_key, config)
+    data_shape       = dataset.data_shape
+    context_shape    = dataset.context_shape
+    parameter_dim    = dataset.parameter_dim
+    sharding         = sgm.shard.get_sharding()
+    reload_opt_state = False # Restart training or not
+
+    # Diffusion model 
+    model = get_model(
+        model_key, 
+        config.model_type, 
+        data_shape, 
+        context_shape, 
+        parameter_dim,
+        config
+    )
+
+    sde = get_sde(config)
+
+    model = train(
+        train_key,
+        model,
+        sde,
+        dataset,
+        config,
+        reload_opt_state=reload_opt_state,
+        sharding=sharding,
+        save_dir=root_dir
+    )
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from jaxtyping import Key, Array
 from torch import Tensor
 from torchvision import datasets
 
-from .utils import Scaler, Normer, ScalerDataset, _InMemoryDataLoader
+from .utils import Scaler, ScalerDataset, _InMemoryDataLoader
 
 
 def tensor_to_array(tensor: Tensor) -> Array:
