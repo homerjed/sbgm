@@ -3,3 +3,4 @@ __pycache__/
 imgs/
 exps/
 _fisher.py
+sgm.egg-info/
