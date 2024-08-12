@@ -3,7 +3,7 @@
 
 Implementation and extension of [Score-Based Generative Modeling through Stochastic Differential Equations (Song++20)](https://arxiv.org/abs/2011.13456) and [Maximum Likelihood Training of Score-Based Diffusion Models (Song++21)](https://arxiv.org/abs/2101.09258) in `jax` and `equinox`. 
 
-> :building_construction: Note this repository is under construction :building_construction:
+> :building_construction: Note this repository is under construction, expect changes. :building_construction:
 
 ### Score-based diffusion models
 
@@ -46,10 +46,12 @@ to run
 python main.py
 ```
 
-<!-- To do:
-* NN beta schedule
-* SDEs: [~VP~, ~SubVP~, VE]
-* Diffusion transformer -->
+### Features
+
+* Parallelised exact and approximate log-likelihood calculations,
+* UNet and transformer score network implementations,
+* VP, SubVP and VE SDEs (neural network $\beta(t)$ functions are on the list!),
+* Multi-device training and sampling.
 
 <h3 align='left'>Flowers</h3>
 
