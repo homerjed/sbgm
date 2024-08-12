@@ -35,6 +35,15 @@ $$
 
 but note that maximum-likelihood training is prohibitively expensive for SDE based diffusion models.
 
+### Usage
+```
+pip install -e .
+```
+to run
+```
+python main.py
+```
+
 <!-- To do:
 * NN beta schedule
 * SDEs: [~VP~, ~SubVP~, VE]
