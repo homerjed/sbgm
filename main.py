@@ -251,6 +251,7 @@ def main():
     """
         Fit a score-based diffusion model.
     """
+
     config = [
         configs.MNISTConfig,
         configs.GRFConfig,
@@ -280,8 +281,10 @@ def main():
         config
     )
 
+    # Stochastic differential equation (SDE)
     sde = get_sde(config)
 
+    # Fit model to dataset
     model = train(
         train_key,
         model,
