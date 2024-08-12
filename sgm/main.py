@@ -1,6 +1,6 @@
 import os
 from copy import deepcopy
-from typing import Sequence, Tuple
+from typing import Sequence
 import jax
 import jax.numpy as jnp
 import jax.random as jr
@@ -8,107 +8,12 @@ import equinox as eqx
 from jaxtyping import Key
 import optax
 import numpy as np 
-import matplotlib.pyplot as plt
 from tqdm import trange
 
 import sgm
+from sgm import utils 
 import data
 import configs
-from sgm._misc import (
-    samples_onto_ax, plot_metrics, save_opt_state, load_opt_state, count_params
-)
-
-
-def sample_and_plot(
-    # Sampling
-    key: Key, 
-    # Data
-    dataset: data.ScalerDataset,
-    # Config
-    config: configs.Config,
-    # Model and SDE
-    model: eqx.Module,
-    sde: sgm.sde.SDE,
-    # Plotting
-    filename: str
-):
-    def plot_sample(samples, mode):
-        fig, ax = plt.subplots(dpi=300)
-        samples_onto_ax(samples, fig, ax, vs=None, cmap=config.cmap)
-        plt.savefig(filename + "_" + mode, bbox_inches="tight")
-        plt.close()
-
-    def rescale(sample):
-        # data [0,1] was normed to [-1, 1]
-        sample = dataset.scaler.reverse(sample) # [-1,1] -> [0, 1]
-        if dataset.name != "moons":
-            sample = jnp.clip(sample, 0., 1.) 
-        return sample
-
-    key_Q, key_sample = jr.split(key)
-    sample_keys = jr.split(key_sample, config.sample_size ** 2)
-
-    # Sample random labels or use parameter prior for labels
-    Q, A = data.get_labels(key_Q, dataset.name, config)
-
-    # EU sampling
-    if config.eu_sample:
-        sample_fn = sgm.sample.get_eu_sample_fn(model, sde, dataset.data_shape)
-        sample = jax.vmap(sample_fn)(sample_keys, Q, A)
-        sample = rescale(sample)
-        plot_sample(sample, mode="eu")
-
-    # ODE sampling
-    if config.ode_sample:
-        sample_fn = sgm.sample.get_ode_sample_fn(model, sde, dataset.data_shape)
-        sample = jax.vmap(sample_fn)(sample_keys, Q, A)
-        sample = rescale(sample)
-        plot_sample(sample, mode="ode")
-
-
-def plot_train_sample(dataset, sample_size, vs, cmap, filename):
-    # Unscale data from dataloader (ignoring parameters)
-    X, Q, A = next(dataset.train_dataloader.loop(sample_size ** 2))
-    print("batch X", X.min(), X.max())
-    X = dataset.scaler.reverse(X)[:sample_size ** 2]
-    print("batch X (scaled)", X.min(), X.max())
-
-    fig, ax = plt.subplots(dpi=300)
-    samples_onto_ax(X, fig, ax, vs, cmap)
-    plt.savefig(filename, bbox_inches="tight")
-    plt.close()
-    del X, Q
-
-
-def plot_sde(sde, filename):
-    # Plot SDE with time
-    plt.figure()
-    T = jnp.linspace(sde.t0, sde.t1, 1000)
-    mu, std = jax.vmap(sde.marginal_prob)(jnp.ones_like(T), T)
-    plt.title(str(sde.__class__.__name__))
-    plt.plot(T, mu, label=r"$\mu(t)$")
-    plt.plot(T, std, label=r"$\sigma(t)$")
-    plt.xlabel(r"$t$")
-    plt.savefig(filename)
-    plt.close()
-
-
-def make_dirs(root_dir: str, config: configs.Config) -> Tuple[str, str]:
-    img_dir = os.path.join(root_dir, "exps/", config.dataset_name + "/") 
-    exp_dir = os.path.join(root_dir, "imgs/", config.dataset_name + "/") 
-    for _dir in [img_dir, exp_dir]:
-        if not os.path.exists(_dir):
-            os.makedirs(_dir, exist_ok=True)
-    return exp_dir, img_dir
-
-
-def load_model(model: eqx.Module, filename: str) -> eqx.Module:
-    model = eqx.tree_deserialise_leaves(filename, model)
-    return model
-
-
-def save_model(model: eqx.Module, filename: str) -> None:
-    eqx.tree_serialise_leaves(filename, model)
 
 
 def get_model(
@@ -184,14 +89,22 @@ def get_sde(config: configs.Config) -> sgm.sde.SDE:
     )
 
 
+def get_opt(
+    config: configs.Config
+) -> optax.GradientTransformation:
+    return getattr(optax, config.opt)(config.lr, **config.opt_kwargs)
+
+
 def main():
     """
         Fit a score-based diffusion model.
     """
-    # config = configs.FlowersConfig
-    # config = configs.GRFConfig
-    config = configs.MNISTConfig
-    # config = configs.CIFAR10Config
+    config = [
+        configs.MNISTConfig,
+        configs.GRFConfig,
+        configs.FlowersConfig,
+        configs.CIFAR10Config
+    ][0]
 
     root_dir = "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_lib/sgm/"
 
@@ -203,7 +116,7 @@ def main():
     data_shape       = dataset.data_shape
     context_shape    = dataset.context_shape
     parameter_dim    = dataset.parameter_dim
-    opt              = getattr(optax, config.opt)(config.lr)
+    opt              = get_opt(config)
     sharding         = sgm.shard.get_sharding()
     reload_opt_state = False # Restart training or not
 
@@ -221,8 +134,8 @@ def main():
     sde = sgm.sde.VESDE(
         # config.beta_integral, 
         # lambda t: t ** 2.,
-        lambda t: jnp.exp(t),
-        weight_fn=lambda t: 1. - jnp.exp(-t),
+        lambda t: 25. ** t - 1., #jnp.exp(t),
+        # weight_fn=lambda t: 1. - jnp.exp(-t),
         dt=config.dt, 
         t0=config.t0, 
         t1=config.t1, 
@@ -230,13 +143,13 @@ def main():
     ) 
 
     # Experiment and image save directories
-    exp_dir, img_dir = make_dirs(root_dir, config)
+    exp_dir, img_dir = utils.make_dirs(root_dir, config)
 
     # Plot SDE over time 
-    plot_sde(sde, filename=os.path.join(exp_dir, "sde.png"))
+    utils.plot_sde(sde, filename=os.path.join(exp_dir, "sde.png"))
 
     # Plot a sample of training data
-    plot_train_sample(
+    utils.plot_train_sample(
         dataset, 
         sample_size=config.sample_size,
         cmap=config.cmap,
@@ -252,15 +165,15 @@ def main():
         exp_dir, f"state_{dataset.name}_{config.model_type}.obj"
     )
 
-    print("Model n_params =", count_params(model))
+    print("Model n_params =", utils.count_params(model))
 
     # Reload optimiser and state if so desired
     if not reload_opt_state:
         opt_state = opt.init(eqx.filter(model, eqx.is_inexact_array))
         start_step = 0
     else:
-        state = load_opt_state(filename=state_filename)
-        model = load_model(model, model_filename)
+        state = utils.load_opt_state(filename=state_filename)
+        model = utils.load_model(model, model_filename)
 
         opt, opt_state, start_step = state.values()
 
@@ -314,23 +227,43 @@ def main():
             )
 
             if (step % config.print_every) == 0 or step == config.n_steps - 1:
+                # Sample model
+                key_Q, key_sample = jr.split(sample_key) # Fixed key
+                sample_keys = jr.split(key_sample, config.sample_size ** 2)
+
+                # Sample random labels or use parameter prior for labels
+                Q, A = data.get_labels(key_Q, dataset.name, config)
+
+                # EU sampling
+                if config.eu_sample:
+                    sample_fn = sgm.sample.get_eu_sample_fn(
+                        ema_model if config.use_ema else model, sde, dataset.data_shape
+                    )
+                    eu_sample = jax.vmap(sample_fn)(sample_keys, Q, A)
+
+                # ODE sampling
+                if config.ode_sample:
+                    sample_fn = sgm.sample.get_ode_sample_fn(
+                        ema_model if config.use_ema else model, sde, dataset.data_shape
+                    )
+                    ode_sample = jax.vmap(sample_fn)(sample_keys, Q, A)
+
                 # Sample images and plot
-                sample_and_plot(
-                    sample_key, 
+                utils.plot_model_sample(
+                    eu_sample,
+                    ode_sample,
                     dataset,
                     config,
-                    ema_model if config.use_ema else model,
-                    sde,
                     filename=os.path.join(img_dir, f"samples_{step:06d}"),
                 )
 
                 # Save model
-                save_model(
+                utils.save_model(
                     ema_model if config.use_ema else model, model_filename
                 )
 
                 # Save optimiser state
-                save_opt_state(
+                utils.save_opt_state(
                     opt, 
                     opt_state, 
                     i=step, 
@@ -338,7 +271,7 @@ def main():
                 )
 
                 # Plot losses etc
-                plot_metrics(train_losses, valid_losses, dets, step, exp_dir)
+                utils.plot_metrics(train_losses, valid_losses, dets, step, exp_dir)
 
 
 if __name__ == "__main__":

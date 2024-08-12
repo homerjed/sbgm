@@ -20,6 +20,8 @@ def single_ode_sample_fn(
     a: Optional[Array] = None,
     solver: Optional[dfx.AbstractSolver] = None
 ) -> Array:
+    """ Solve reverse ODE initial-value problem with prior sample """
+
     model = eqx.tree_inference(model, True)
 
     reverse_sde = sde.reverse(model, probability_flow=True)
@@ -54,15 +56,13 @@ def single_eu_sample_fn(
     T_sample: int = 1_000
 ) -> Array:
     """ Euler-Murayama sampler of reverse SDE """
+    
     model = eqx.tree_inference(model, True)
 
     time_steps = jnp.linspace(sde.t1, sde.t0, T_sample) # Reversed time
     step_size = (sde.t1 - sde.t0) / T_sample 
-    # keys = jr.split(key, T_sample)
 
-    # _, std_t1 = sde.marginal_prob(jnp.zeros(data_shape), sde.t1)
-    # std_t1 = jnp.sqrt(jnp.maximum(std_t1, 1e-5)) # SDEs give std not var
-    x = sde.prior_sample(key, data_shape) #* std_t1 # x = x * std(t=1.)???
+    xT = sde.prior_sample(key, data_shape) 
     reverse_sde = sde.reverse(model, probability_flow=False)
 
     def marginal(i, val):
@@ -78,14 +78,14 @@ def single_eu_sample_fn(
         key_eps = jr.fold_in(key, i) 
         eps_t = jr.normal(key_eps, data_shape)
         drift, diffusion = reverse_sde.sde(x, t, q, a)
-        mean_x = x + drift * (-step_size)
+        mean_x = x - drift * step_size # mu_x = x + drift * -step
         # x = [f(x, t) - g^2(t) * score(x, t, q)] * dt + g(t) * sqrt(dt) * eps_t
         x = mean_x + diffusion * jnp.sqrt(step_size) * eps_t
 
         return mean_x, x
 
     mean_x, x = jax.lax.fori_loop(
-        0, T_sample, marginal, init_val=(jnp.zeros_like(x), x)
+        0, T_sample, marginal, init_val=(jnp.zeros_like(xT), xT)
     )
 
     # Do not include any noise in the last sampling step.

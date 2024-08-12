@@ -2,3 +2,4 @@ datasets/
 __pycache__/
 imgs/
 exps/
+_fisher.py

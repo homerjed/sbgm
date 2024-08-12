@@ -6,28 +6,9 @@ import equinox as eqx
 from jaxtyping import Key, Array
 
 
-def get_beta_fn(beta_integral_fn: Union[Callable, eqx.Module]) -> Callable:
-    """ Turn a beta integral into a beta function """
-    def _beta_fn(t):
-        _, beta = jax.jvp(
-            beta_integral_fn, 
-            primals=(t,), 
-            tangents=(jnp.ones_like(t),),
-            has_aux=False
-        )
-        return beta
-    return _beta_fn
-
-
-def _get_log_prob_fn(scale: float = 1.) -> Callable:
-    def _log_prob_fn(z: Array) -> Array:
-        return jax.scipy.stats.norm.logpdf(z, loc=0., scale=scale).sum()
-    return _log_prob_fn
-
-
 class SDE(eqx.Module):
     """
-        SDE abstract class. Functions are designed for a mini-batch of inputs.
+        SDE abstract class.
     """
     dt: float
     t0: float
@@ -164,6 +145,25 @@ class SDE(eqx.Module):
         return RSDE()
 
 
+def get_beta_fn(beta_integral_fn: Union[Callable, eqx.Module]) -> Callable:
+    """ Obtain beta function from a beta beta integral. """
+    def _beta_fn(t):
+        _, beta = jax.jvp(
+            beta_integral_fn, 
+            primals=(t,), 
+            tangents=(jnp.ones_like(t),),
+            has_aux=False
+        )
+        return beta
+    return _beta_fn
+
+
+def _get_log_prob_fn(scale: float = 1.) -> Callable:
+    def _log_prob_fn(z: Array) -> Array:
+        return jax.scipy.stats.norm.logpdf(z, loc=0., scale=scale).sum()
+    return _log_prob_fn
+
+
 class VPSDE(SDE):
     beta_integral_fn: Callable
     beta_fn: Callable
@@ -187,7 +187,7 @@ class VPSDE(SDE):
             N: number of discretization steps
         """
         super().__init__(dt=dt, t0=t0, t1=t1, N=N)
-        self.beta_integral_fn = beta_integral_fn # NOTE: these objects are for VP only, set attribute 'sde' that is dependent on these together! Not weight function though
+        self.beta_integral_fn = beta_integral_fn 
         self.beta_fn = get_beta_fn(beta_integral_fn)
         self.weight_fn = weight_fn
 
@@ -314,15 +314,15 @@ class SubVPSDE(SDE):
 
 
 def get_diffusion_fn(sigma_fn):
-    """ Get diffusion coefficient function for VE SDE """
+    """ Get diffusion coefficient function for VE SDE: dx = sqrt(d[sigma^2(t)]/dt)dw """
     def _diffusion_fn(t):
-        _, sigma = jax.jvp(
-            sigma_fn, 
+        _, dsigmadt = jax.jvp(
+            lambda t: jnp.square(sigma_fn(t)), 
             primals=(t,), 
             tangents=(jnp.ones_like(t),),
             has_aux=False
         )
-        return jnp.sqrt(sigma) # = sqrt(d[sigma(t)]/dt) ?
+        return jnp.sqrt(dsigmadt) # = sqrt(d[sigma^2(t)]/dt) ?
     return _diffusion_fn
 
 
@@ -342,7 +342,7 @@ class VESDE(SDE):
         """
             Construct a Variance Exploding SDE.
 
-            dx = sqrt(d[(sigma_fn(t)) ** 2]/dt)
+            dx = sqrt(d[sigma_fn(t) ** 2]/dt)
 
             Args:
             sigma: default variance value
@@ -354,13 +354,13 @@ class VESDE(SDE):
 
     def sde(self, x, t):
         drift = jnp.zeros_like(x)
-        _, diffusion = jax.jvp(
-            self.sigma_fn, 
+        _, dsigma2dt = jax.jvp(
+            lambda t: jnp.square(self.sigma_fn(t)), 
             primals=(t,), 
             tangents=(jnp.ones_like(t),),
             has_aux=False
         )
-        # diffusion = self.sigma_fn(t) 
+        diffusion = jnp.sqrt(dsigma2dt)
         return drift, diffusion
 
     def marginal_prob(self, x, t):
@@ -372,9 +372,8 @@ class VESDE(SDE):
 
             x(t) ~ G[x(t)|x(0), [sigma^2(t) - sigma^2(0)] * I
         """
-        # This assumes sigma ** 5 sigma_fn always..
-        std = jnp.sqrt(jnp.square(self.sigma_fn(t)) - jnp.square(self.sigma_fn(0.))) # NOTE: variance here or std?
-        return x, std # Mean is always x for VE, std = sigma_fn(t)
+        std = jnp.sqrt(jnp.square(self.sigma_fn(t)) - jnp.square(self.sigma_fn(0.))) 
+        return x, std 
 
     def weight(self, t, likelihood_weight=False):
         if self.weight_fn is not None and not likelihood_weight:
@@ -387,7 +386,7 @@ class VESDE(SDE):
         return weight
 
     def prior_sample(self, key, shape):
-        return jr.normal(key, shape) * self.sigma_fn(self.t1) # NOTE: std at T=1 not necessarily one 
+        return jr.normal(key, shape) * self.sigma_fn(self.t1) 
 
     def prior_log_prob(self, z):
         return jax.vmap(_get_log_prob_fn(scale=self.sigma_fn(self.t1)))(z)

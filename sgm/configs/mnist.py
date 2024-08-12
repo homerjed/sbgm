@@ -25,7 +25,7 @@ class MNISTConfig:
     # )
     # SDE
     sde                 = "VP"
-    t1                  = 4.
+    t1                  = 1.
     t0                  = 1e-5
     dt                  = 0.1
     beta_integral       = lambda t: t 
@@ -43,6 +43,7 @@ class MNISTConfig:
     batch_size          = 256 
     print_every         = 1_000
     opt                 = "adabelief"
+    opt_kwargs          = {}
     num_workers         = 8
     # Other
     cmap                = "gray_r" 

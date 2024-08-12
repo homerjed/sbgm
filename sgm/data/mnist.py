@@ -16,7 +16,7 @@ def mnist(key: Key) -> ScalerDataset:
     data_shape = (1, 28, 28)
     parameter_dim = 1 
 
-    # scaler = Scaler() # [0, 1] -> [-1, 1]
+    scaler = Scaler() # [0, 1] -> [-1, 1]
 
     # MNIST is small enough that the whole dataset can be placed in memory, so
     # we can actually use a faster method of data loading.
@@ -39,7 +39,7 @@ def mnist(key: Key) -> ScalerDataset:
     train_data = (train_data - min) / (max - min)
     valid_data = (valid_data - min) / (max - min)
 
-    scaler = Normer(train_data.mean(), train_data.std())
+    # scaler = Normer(train_data.mean(), train_data.std())
 
     train_dataloader = _InMemoryDataLoader(
         train_data, Q=None, A=train_targets, key=key_train
