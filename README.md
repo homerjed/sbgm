@@ -55,6 +55,8 @@ python main.py
 
 ### Samples
 
+> Note: I haven't optimised any training/architecture hyperparameters or trained long enough here, you could do a lot better. 
+
 <h3 align='left'>Flowers</h3>
 
 Euler-Marayama sampling
@@ -72,8 +74,6 @@ ODE sampling
 ![alt text](figs/cifar10_ode.png?raw=true)
 
 ![alt text](figs/flowers_ode.png?raw=true)
-
-> Note: I haven't optimised any hyperparameters or trained long enough here, you could do a lot better. 
 
 ### SDEs 
 ![alt text](figs/sdes.png?raw=true)
