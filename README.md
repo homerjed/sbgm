@@ -53,6 +53,8 @@ python main.py
 * VP, SubVP and VE SDEs (neural network $\beta(t)$ functions are on the list!),
 * Multi-device training and sampling.
 
+### Samples
+
 <h3 align='left'>Flowers</h3>
 
 Euler-Marayama sampling
@@ -68,6 +70,13 @@ Euler-Marayama sampling
 
 ODE sampling
 ![alt text](figs/cifar10_ode.png?raw=true)
+
+![alt text](figs/flowers_ode.png?raw=true)
+
+> Note: I haven't optimised any hyperparameters or trained long enough here, you could do a lot better. 
+
+### SDEs 
+![alt text](figs/sdes.png?raw=true)
 
 <!-- <p align="center">
   <img src="figs/flowers_eu.png" width="350" title="hover text">

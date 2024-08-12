@@ -432,133 +432,19 @@ if __name__ == "__main__":
     def get_sde_mean_and_std(sde):
         return jax.vmap(sde.marginal_prob, in_axes=(None, 0))
 
-    fig, axs = plt.subplots(1, 4, figsize=(21., 4.))
+    fig, axs = plt.subplots(1, 4, figsize=(21., 4.), dpi=200)
     ax = axs[0]
     ax.plot(T, jax.vmap(beta_fn)(T), linestyle=":", label="beta")
     ax_ = ax.twinx()
-    ax.legend()
+    ax.legend(frameon=False, loc="upper left")
     ax_.plot(T, jax.vmap(beta_integral_fn)(T), label="integral")
-    ax_.legend()
+    ax_.legend(frameon=False, loc="lower right")
     plt.title("SDEs")
     for ax, _sde in zip(axs[1:], [ve_sde, vp_sde, subvp_sde]):
         mu, std = get_sde_mean_and_std(_sde)(x, T)
         ax.set_title(str(_sde.__class__.__name__))
         ax.plot(T, mu, label=r"$\mu(t)$")
         ax.plot(T, std, label=r"$\sigma(t)$")
-    ax.legend()
-    plt.savefig(os.path.join(figs_dir, "sdes.png"))
+        ax.legend(frameon=False)
+    plt.savefig(os.path.join(figs_dir, "sdes.png"), bbox_inches="tight")
     plt.close()
-
-#     if 0:
-#         """ Reverse SDE has no marginal prob fn because it is the same in either direction? only the SDE reverses... """
-#         fig, axs = plt.subplots(1, 3, figsize=(10., 4.))
-#         plt.title("SDEs")
-#         for ax, _sde in zip(axs, [ve_sde, vp_sde, subvp_sde]):
-#             _rsde = _sde.reverse(lambda x: x)
-#             mu, std = get_sde_mean_and_std(_rsde)(x, T)
-#             ax.set_title(str(_sde.__class__.__name__))
-#             ax.plot(T, mu, label="$\mu(t)$")
-#             ax.plot(T, std, label="$\sigma(t)$")
-#         ax.legend()
-#         plt.savefig("sdes_reverse.png")
-#         plt.close()
-
-#     """
-#         Make the classic fig...
-#         - calculate p_t(x) for a scalar x=1 across all t
-#     """
-#     n_times = 1000
-#     x = jnp.linspace(-2., 2., 1000)
-#     times = jnp.linspace(0., 1., n_times)
-#     X = np.zeros((n_times, len(x)))
-#     sde = VPSDE(beta_integral=beta_integral)
-#     # sde = VESDE(sigma=25.)
-
-#     print("X", X.shape)
-#     def gaussian_prob(mu, std):
-#         return lambda x: jax.scipy.stats.norm.pdf(x, loc=mu, scale=std).squeeze()
-
-#     if 0:
-#         key = jr.PRNGKey(0)
-#         points = np.zeros((n_times, 2))
-#         p = sde.prior_sample(key, (1,))
-#         p = jnp.array([100.])
-#         for i, t in enumerate(times):
-#             # Calculate the marginals, returns mu, std of p_t(x(t)) (background of plots)
-#             mu, std = sde.marginal_prob(x=jnp.ones((1,)), t=t)
-#             X[i] = jax.vmap(gaussian_prob(mu, std))(x)
-
-#             # Stochastically evolve a point
-#             mu, std = sde.marginal_prob(x=p, t=t) # mu = p * mu_t...
-#             p = mu + jr.normal(jr.fold_in(key, i), p.shape) * std
-#             points[i] = float(i), p.item()
-#             print("\r", i, p, end="")
-
-#             # Stochastically evolve by reverse SDE sampling?!
-#             # eps_t = jr.normal(jr.fold_in(key, i), p.shape)
-#             # drift, diffusion = sde.reverse(model, probability_flow=False).sde(p, times[i])
-#             # mean_x = x + jnp.square(diffusion) * model(t, x, q) * step_size 
-#             # x = drift + jnp.sqrt(step_size) * diffusion * eps_t
-
-#             # print("\r", i, (jr.normal(jr.fold_in(key, i)) * std + mu).item(), end="")
-
-#             # points[i, :] = float(i), float((jr.normal(jr.fold_in(key, i)) * std + x * mu).item())
-
-#             # drift, diffusion = sde.sde(x=x, t=times[i])
-#             # n = jr.normal(jr.fold_in(key, i), (1,))
-#             # x = x * drift + n * diffusion
-
-#         plt.figure(dpi=200)
-#         plt.imshow(X.T, cmap="gist_stern", )#extent=[0., 1., -4., 4.])
-#         plt.scatter(*points.T, color="royalblue", s=0.1)
-#         # plt.plot(points[:, 1], color="w")
-#         plt.ylabel("$p_t(x)$")
-#         plt.xlabel("$t$")
-#         plt.tight_layout()
-#         plt.savefig("sdes_marginals.png")
-#         plt.close()
-
-
-#     import tensorflow_probability.substrates.jax as tfp
-#     tfd = tfp.distributions
-#     # Sample interesting data, to diffuse
-#     a, b, c = 0.2, 0.3, 0.5
-#     mixture = tfd.Mixture(
-#         cat=tfd.Categorical(probs=[a, b, c]),
-#         components=[
-#             tfd.Normal(loc=-1., scale=0.1),
-#             tfd.Normal(loc=+1., scale=0.5),
-#             tfd.Normal(loc=0., scale=0.2),
-#         ]
-#     )
-
-#     key = jr.PRNGKey(0)
-#     d = mixture.sample((1000,), seed=key)
-#     print(d.shape)
-
-#     points = np.zeros((n_times, len(d)))
-#     for i, t in enumerate(times):
-#         # Calculate the marginals, returns mu, std of p_t(x(t)) (background of plots)
-#         mu_, std_ = sde.marginal_prob(x=jnp.ones((1,)), t=t)
-
-#         mu, std = sde.marginal_prob(x=d, t=t)
-#         d = mu + jr.normal(jr.fold_in(key, i), d.shape) * std
-#         # X[i] = gaussian_prob(mu_, std_)(d)
-#         X[i] = jax.vmap(gaussian_prob(mu_, std_))(d)
-#         # X[i] = d
-
-#     plt.figure(dpi=200)
-#     plt.imshow(X.T, cmap="gist_stern", )#extent=[0., 1., -4., 4.])
-#     # plt.scatter(*points.T, color="royalblue", s=0.1)
-#     # plt.plot(points[:, 1], color="w")
-#     plt.ylabel("$p_t(x)$")
-#     plt.xlabel("$t$")
-#     plt.tight_layout()
-#     plt.savefig("sdes_marginals.png")
-#     plt.close()
-
-#     # plt.plot(d)
-#     # plt.savefig("sdes_marginals.png")
-#     # plt.close()
-
-
