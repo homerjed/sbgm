@@ -59,7 +59,7 @@ python main.py
 
 > Note: I haven't optimised any training/architecture hyperparameters or trained long enough here, you could do a lot better. 
 
-<h3 align='left'>Flowers</h3>
+<h4 align='left'>Flowers</h4>
 
 Euler-Marayama sampling
 ![alt text](figs/flowers_eu.png?raw=true)
@@ -67,7 +67,7 @@ Euler-Marayama sampling
 ODE sampling
 ![alt text](figs/flowers_ode.png?raw=true)
 
-<h3 align='left'>CIFAR10</h3>
+<h4 align='left'>CIFAR10</h4>
 
 Euler-Marayama sampling
 ![alt text](figs/cifar10_eu.png?raw=true)
@@ -75,7 +75,7 @@ Euler-Marayama sampling
 ODE sampling
 ![alt text](figs/cifar10_ode.png?raw=true)
 
-![alt text](figs/flowers_ode.png?raw=true)
+<!-- ![alt text](figs/flowers_ode.png?raw=true) -->
 
 ### SDEs 
 ![alt text](figs/sdes.png?raw=true)
