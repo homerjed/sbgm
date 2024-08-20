@@ -3,9 +3,13 @@
 
 Implementation and extension of [Score-Based Generative Modeling through Stochastic Differential Equations (Song++20)](https://arxiv.org/abs/2011.13456) and [Maximum Likelihood Training of Score-Based Diffusion Models (Song++21)](https://arxiv.org/abs/2101.09258) in `jax` and `equinox`. 
 
+
+> [!WARNING]
 > :building_construction: Note this repository is under construction, expect changes. :building_construction:
 
 ### Score-based diffusion models
+
+Diffusion models are deep hierarchical models for data that use neural networks to model the reverse of a diffusion process that adds a sequence of noise perturbations to the data. Modern cutting-edge diffusion models express both the forward and reverse diffusion processes as a Stochastic Differential Equation (SDE).
 
 For any SDE of the form 
 
@@ -57,7 +61,8 @@ python main.py
 
 ### Samples
 
-> Note: I haven't optimised any training/architecture hyperparameters or trained long enough here, you could do a lot better. 
+> [!NOTE]
+> I haven't optimised any training/architecture hyperparameters or trained long enough here, you could do a lot better. 
 
 <h4 align='left'>Flowers</h4>
 
@@ -79,6 +84,32 @@ ODE sampling
 
 ### SDEs 
 ![alt text](figs/sdes.png?raw=true)
+
+### Citations
+```bibtex
+@misc{song2021scorebasedgenerativemodelingstochastic,
+      title={Score-Based Generative Modeling through Stochastic Differential Equations}, 
+      author={Yang Song and Jascha Sohl-Dickstein and Diederik P. Kingma and Abhishek Kumar and Stefano Ermon and Ben Poole},
+      year={2021},
+      eprint={2011.13456},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2011.13456}, 
+}
+```
+
+```bibtex
+@misc{song2021maximumlikelihoodtrainingscorebased,
+      title={Maximum Likelihood Training of Score-Based Diffusion Models}, 
+      author={Yang Song and Conor Durkan and Iain Murray and Stefano Ermon},
+      year={2021},
+      eprint={2101.09258},
+      archivePrefix={arXiv},
+      primaryClass={stat.ML},
+      url={https://arxiv.org/abs/2101.09258}, 
+}
+```
+
 
 <!-- <p align="center">
   <img src="figs/flowers_eu.png" width="350" title="hover text">
