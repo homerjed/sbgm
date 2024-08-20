@@ -3,13 +3,17 @@
 
 Implementation and extension of [Score-Based Generative Modeling through Stochastic Differential Equations (Song++20)](https://arxiv.org/abs/2011.13456) and [Maximum Likelihood Training of Score-Based Diffusion Models (Song++21)](https://arxiv.org/abs/2101.09258) in `jax` and `equinox`. 
 
-
 > [!WARNING]
 > :building_construction: Note this repository is under construction, expect changes. :building_construction:
 
 ### Score-based diffusion models
 
-Diffusion models are deep hierarchical models for data that use neural networks to model the reverse of a diffusion process that adds a sequence of noise perturbations to the data. Modern cutting-edge diffusion models express both the forward and reverse diffusion processes as a Stochastic Differential Equation (SDE).
+Diffusion models are deep hierarchical models for data that use neural networks to model the reverse of a diffusion process that adds a sequence of noise perturbations to the data. 
+
+![](figs/score.jpeg)
+*A diagram (see citations) showing how to map data to a noise distribution (the prior) with an SDE, and reverse this SDE for generative modeling. One can also reverse the associated probability flow ODE, which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score $\nabla_{\boldsymbol{x}} \log p_t(\boldsymbol{x}_t)$.*
+
+Modern cutting-edge diffusion models (see citations) express both the forward and reverse diffusion processes as a Stochastic Differential Equation (SDE).
 
 For any SDE of the form 
 
@@ -42,6 +46,7 @@ $$
 but note that maximum-likelihood training is prohibitively expensive for SDE based diffusion models.
 
 ### Usage
+
 Install via
 ```
 pip install -e .
@@ -109,7 +114,6 @@ ODE sampling
       url={https://arxiv.org/abs/2101.09258}, 
 }
 ```
-
 
 <!-- <p align="center">
   <img src="figs/flowers_eu.png" width="350" title="hover text">
