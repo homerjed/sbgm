@@ -12,7 +12,7 @@ Diffusion models are deep hierarchical models for data that use neural networks 
 
 <!-- ![alt text](figs/score.jpeg?raw=true) -->
 <p align="center">
-  <img src="https://github.com/homerjed/sgm/blob/main/figs/score.jpeg" />
+  <img src="https://github.com/homerjed/sgm/blob/main/figs/score.png" />
 </p>
 
 
@@ -40,7 +40,7 @@ where the trajectories of the SDE and ODE have the same marginal PDFs $p_t(\bold
 For each SDE there exists a deterministic ODE with marginal likelihoods $p_t(\boldsymbol{x})$ that match the SDE for all time $t$
 
 $$
-\text{d}\boldsymbol{x} = [f(\boldsymbol{x}, t)\text{d}t - \frac{1}{2}g(t)^2\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})]\text{d}t != F(\boldsymbol{x}(t), t)
+\text{d}\boldsymbol{x} = [f(\boldsymbol{x}, t)\text{d}t - \frac{1}{2}g(t)^2\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})]\text{d}t = F(\boldsymbol{x}(t), t)
 $$
 
 The continuous normalizing flow formalism allows the ODE to be expressed as

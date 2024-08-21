@@ -434,10 +434,10 @@ if __name__ == "__main__":
 
     fig, axs = plt.subplots(1, 4, figsize=(21., 4.), dpi=200)
     ax = axs[0]
-    ax.plot(T, jax.vmap(beta_fn)(T), linestyle=":", label="beta")
+    ax.plot(T, jax.vmap(beta_fn)(T), linestyle=":", label=r"$\beta(t)$")
     ax_ = ax.twinx()
     ax.legend(frameon=False, loc="upper left")
-    ax_.plot(T, jax.vmap(beta_integral_fn)(T), label="integral")
+    ax_.plot(T, jax.vmap(beta_integral_fn)(T), label=r"$\int_0^t\beta(s)ds$")
     ax_.legend(frameon=False, loc="lower right")
     plt.title("SDEs")
     for ax, _sde in zip(axs[1:], [ve_sde, vp_sde, subvp_sde]):
