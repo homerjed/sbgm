@@ -17,17 +17,16 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-urls = {repository = "https://github.com/homerjed/sgm" }
+urls = {repository = "https://github.com/homerjed/sgm"}
 
 dependencies = [
     'jax>=0.4.28',
     'equinox',
     'diffrax',
     'optax',
-    'numpy",
+    'numpy',
     'matplotlib',
     'cloudpickle',
-    'einx>=0.3.0',
     'einops>=0.8.0',
     'jaxtyping',
     'torch>=2.0',
