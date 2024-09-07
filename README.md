@@ -1,4 +1,4 @@
-<h1 align='center'>sgm</h1>
+<h1 align='center'>sbgm</h1>
 <h2 align='center'>Score-based Diffusion models in JAX</h2>
 
 Implementation and extension of [Score-Based Generative Modeling through Stochastic Differential Equations (Song++20)](https://arxiv.org/abs/2011.13456) and [Maximum Likelihood Training of Score-Based Diffusion Models (Song++21)](https://arxiv.org/abs/2101.09258) in `jax` and `equinox`. 
@@ -10,11 +10,9 @@ Implementation and extension of [Score-Based Generative Modeling through Stochas
 
 Diffusion models are deep hierarchical models for data that use neural networks to model the reverse of a diffusion process that adds a sequence of noise perturbations to the data. 
 
-<!-- ![alt text](figs/score.jpeg?raw=true) -->
 <p align="center">
-  <img src="https://github.com/homerjed/sgm/blob/main/figs/score.png" />
+  <img src="https://github.com/homerjed/sbgm/blob/main/figs/score.png" />
 </p>
-
 
 *A diagram (see citations) showing how to map data to a noise distribution (the prior) with an SDE, and reverse this SDE for generative modeling. One can also reverse the associated probability flow ODE, which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score.* 
 <!-- $\nabla_{\boldsymbol{x}} \log p_t(\boldsymbol{x}_t)$ -->
@@ -54,8 +52,11 @@ but note that maximum-likelihood training is prohibitively expensive for SDE bas
 ### Usage
 
 Install via
-```
+<!-- ```
 pip install -e .
+``` -->
+```
+pip install sbgm
 ```
 to run
 ```
@@ -78,18 +79,18 @@ python main.py
 <h4 align='left'>Flowers</h4>
 
 Euler-Marayama sampling
-![alt text](figs/flowers_eu.png?raw=true)
+![Flowers Euler-Marayama sampling](figs/flowers_eu.png?raw=true)
 
 ODE sampling
-![alt text](figs/flowers_ode.png?raw=true)
+![Flowers ODE sampling](figs/flowers_ode.png?raw=true)
 
 <h4 align='left'>CIFAR10</h4>
 
 Euler-Marayama sampling
-![alt text](figs/cifar10_eu.png?raw=true)
+![CIFAR10 Euler-marayama sampling](figs/cifar10_eu.png?raw=true)
 
 ODE sampling
-![alt text](figs/cifar10_ode.png?raw=true)
+![CIFAR10 ODE sampling](figs/cifar10_ode.png?raw=true)
 
 <!-- ![alt text](figs/flowers_ode.png?raw=true) -->
 
