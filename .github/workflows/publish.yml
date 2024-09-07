@@ -103,7 +103,7 @@ jobs:
 
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/<package-name>
+      url: https://test.pypi.org/p/sgmjax # url: https://test.pypi.org/p/<package-name>
 
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
