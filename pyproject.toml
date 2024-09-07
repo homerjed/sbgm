@@ -1,0 +1,41 @@
+[project]
+name = "sgm"
+version = "0.0.0"
+description = "Score-based Diffusion models in JAX."
+readme = "README.md"
+requires-python ="~=3.12"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Jed Homer", email = "jedhmr@gmail.com"},
+]
+keywords = ["jax", "neural-networks", "deep-learning", "generative-models"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+urls = {repository = "https://github.com/homerjed/sgm" }
+
+dependencies = [
+    'jax>=0.4.28',
+    'equinox',
+    'diffrax',
+    'optax',
+    'numpy",
+    'matplotlib',
+    'cloudpickle',
+    'einx>=0.3.0',
+    'einops>=0.8.0',
+    'jaxtyping',
+    'torch>=2.0',
+    'torchvision',
+    'tqdm',
+    'powerbox'
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
