@@ -10,8 +10,8 @@ import optax
 import numpy as np 
 from tqdm import trange
 
-import sgm
-from sgm import utils 
+import sbgm
+from sbgm import utils 
 import data 
 import configs 
 
@@ -25,7 +25,7 @@ def get_model(
     config: configs.Config
 ) -> eqx.Module:
     if model_type == "Mixer":
-        model = sgm.models.Mixer2d(
+        model = sbgm.models.Mixer2d(
             data_shape,
             **config.model_args,
             t1=config.t1,
@@ -34,14 +34,14 @@ def get_model(
             key=model_key
         )
     if model_type == "UNet":
-        model = sgm.models.UNet(
+        model = sbgm.models.UNet(
             data_shape=data_shape,
             **config.model_args,
             a_dim=parameter_dim,
             key=model_key
         )
     if model_type == "UNetXY":
-        model = sgm.models.UNetXY(
+        model = sbgm.models.UNetXY(
             data_shape=data_shape,
             **config.model_args,
             q_dim=context_shape[0], # Just grab channel assuming 'q' is a map like x
@@ -49,7 +49,7 @@ def get_model(
             key=model_key
         )
     if model_type == "mlp":
-        model = sgm.models.ResidualNetwork(
+        model = sbgm.models.ResidualNetwork(
             in_size=np.prod(data_shape),
             **config.model_args,
             y_dim=parameter_dim,
@@ -76,10 +76,10 @@ def get_dataset(
     return dataset
 
 
-def get_sde(config: configs.Config) -> sgm.sde.SDE:
+def get_sde(config: configs.Config) -> sbgm.sde.SDE:
     name = config.sde + "SDE"
     assert name in ["VESDE", "VPSDE", "SubVPSDE"]
-    sde = getattr(sgm.sde, name)
+    sde = getattr(sbgm.sde, name)
     return sde(
         beta_integral_fn=config.beta_integral,
         dt=config.dt,
@@ -169,8 +169,8 @@ def train(
             dataset.valid_dataloader.loop(config.batch_size)
         ):
             # Train
-            x, q, a = sgm.shard.shard_batch(train_batch, sharding)
-            _Lt, model, train_key, opt_state = sgm.train.make_step(
+            x, q, a = sbgm.shard.shard_batch(train_batch, sharding)
+            _Lt, model, train_key, opt_state = sbgm.train.make_step(
                 model, sde, x, q, a, train_key, opt_state, opt.update
             )
 
@@ -179,11 +179,11 @@ def train(
             train_losses.append(train_total_value / train_total_size)
 
             if config.use_ema:
-                ema_model = sgm.apply_ema(ema_model, model)
+                ema_model = sbgm.apply_ema(ema_model, model)
 
             # Validate
-            x, q, a = sgm.shard.shard_batch(valid_batch, sharding)
-            _Lv = sgm.train.evaluate(
+            x, q, a = sbgm.shard.shard_batch(valid_batch, sharding)
+            _Lv = sbgm.train.evaluate(
                 ema_model if config.use_ema else model, sde, x, q, a, valid_key
             )
 
@@ -208,14 +208,14 @@ def train(
 
                 # EU sampling
                 if config.eu_sample:
-                    sample_fn = sgm.sample.get_eu_sample_fn(
+                    sample_fn = sbgm.sample.get_eu_sample_fn(
                         ema_model if config.use_ema else model, sde, dataset.data_shape
                     )
                     eu_sample = jax.vmap(sample_fn)(sample_keys, Q, A)
 
                 # ODE sampling
                 if config.ode_sample:
-                    sample_fn = sgm.sample.get_ode_sample_fn(
+                    sample_fn = sbgm.sample.get_ode_sample_fn(
                         ema_model if config.use_ema else model, sde, dataset.data_shape
                     )
                     ode_sample = jax.vmap(sample_fn)(sample_keys, Q, A)
@@ -268,7 +268,7 @@ def main():
     data_shape       = dataset.data_shape
     context_shape    = dataset.context_shape
     parameter_dim    = dataset.parameter_dim
-    sharding         = sgm.shard.get_sharding()
+    sharding         = sbgm.shard.get_sharding()
     reload_opt_state = False # Restart training or not
 
     # Diffusion model 
