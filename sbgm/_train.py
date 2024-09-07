@@ -146,7 +146,7 @@ def train(
     # Sharding of devices to run on
     sharding: Optional[jax.sharding.Sharding] = None,
     # Location to save model, figs, .etc in
-    save_dir: Optional[str] = None,
+    save_dir: Optional[str] = None
 ):
     print(f"Training SGM with {config.sde.sde} SDE on {config.dataset_name} dataset.")
 
@@ -281,4 +281,5 @@ def train(
 
                 # Plot losses etc
                 plot_metrics(train_losses, valid_losses, dets, step, exp_dir)
+
     return model
