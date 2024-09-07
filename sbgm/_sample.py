@@ -76,9 +76,11 @@ def single_eu_sample_fn(
         t = time_steps[i]
         
         key_eps = jr.fold_in(key, i) 
+
         eps_t = jr.normal(key_eps, data_shape)
         drift, diffusion = reverse_sde.sde(x, t, q, a)
         mean_x = x - drift * step_size # mu_x = x + drift * -step
+
         # x = [f(x, t) - g^2(t) * score(x, t, q)] * dt + g(t) * sqrt(dt) * eps_t
         x = mean_x + diffusion * jnp.sqrt(step_size) * eps_t
 

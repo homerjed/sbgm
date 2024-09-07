@@ -1,5 +1,5 @@
 import abc
-from typing import Tuple, Union, NamedTuple
+from typing import Tuple, Union, NamedTuple, Callable
 from dataclasses import dataclass
 import jax
 import jax.numpy as jnp
@@ -161,3 +161,4 @@ class ScalerDataset:
     context_shape: Tuple[int]
     parameter_dim: int
     scaler: Scaler
+    label_fn: Callable

@@ -11,6 +11,8 @@ import powerbox
 
 from .utils import Scaler, ScalerDataset, _TorchDataLoader
 
+data_dir = "/project/ls-gruen/users/jed.homer/data/fields/"
+
 
 def get_fields(key: Key, Q, n_pix: int, n_fields: int):
     G = np.zeros((n_fields, 1, n_pix, n_pix))
@@ -44,7 +46,6 @@ def get_data(key: Key, n_pix: int) -> Tuple[np.ndarray, np.ndarray]:
     """
         Load Gaussian and lognormal fields
     """
-    data_dir = "/project/ls-gruen/users/jed.homer/data/fields/"
 
     if 0:
         G = np.load(os.path.join(data_dir, f"G_{n_pix=}.npy"))
@@ -93,6 +94,12 @@ class MapDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.tensors[0].size(0)
+
+
+def get_grf_labels(n_pix: int) -> np.ndarray:
+    Q = np.load(os.path.join(data_dir, f"G_{n_pix=}.npy"))
+    A = np.load(os.path.join(data_dir, f"field_parameters_{n_pix=}.npy"))
+    return Q, A
 
 
 def grfs(key, n_pix, split=0.5):
@@ -144,6 +151,14 @@ def grfs(key, n_pix, split=0.5):
     # valid_dataloader = _InMemoryDataLoader(
     #     data=X[n_train:], targets=Q[n_train:], key=key_valid
     # )
+
+    def label_fn(key, n):
+        Q, A = get_grf_labels(n_pix)
+        ix = jr.choice(key, jnp.arange(len(Q)), (n,))
+        Q = Q[ix]
+        A = A[ix]
+        return Q, A
+
     return ScalerDataset(
         name="grfs",
         train_dataloader=train_dataloader,
@@ -151,5 +166,6 @@ def grfs(key, n_pix, split=0.5):
         data_shape=data_shape,
         context_shape=context_shape,
         parameter_dim=parameter_dim,
-        scaler=scaler
+        scaler=scaler,
+        label_fn=label_fn
     )

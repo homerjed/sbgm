@@ -1,49 +1,54 @@
-class MNISTConfig:
-    seed                = 0
+import ml_collections
+
+
+def mnist_config():
+    config = ml_collections.ConfigDict()
+
+    config.seed            = 0
+
     # Data
-    dataset_name        = "mnist" 
+    config.dataset_name    = "mnist" 
+
     # Model
-    model_type: str     = "UNet"
-    model_args          = dict(
-        is_biggan=False,
-        dim_mults=[1, 1, 1],
-        hidden_size=32,
-        heads=4, 
-        dim_head=64,
-        dropout_rate=0.3,
-        num_res_blocks=2,
-        attn_resolutions=[8, 16, 32],
-        final_activation=None
-    )
-    # model_type          = "Mixer"
-    # model_args          = dict(
-    #     patch_size=2,
-    #     hidden_size=512,
-    #     mix_patch_size=512,
-    #     mix_hidden_size=512,
-    #     num_blocks=4
-    # )
+    config.model = model = ml_collections.ConfigDict()
+    model.model_type       = "UNet"
+    model.is_biggan        = False
+    model.dim_mults        = [1, 1, 1]
+    model.hidden_size      = 32
+    model.heads            = 4
+    model.dim_head         = 64
+    model.dropout_rate     = 0.3
+    model.num_res_blocks   = 2
+    model.attn_resolutions = [8, 16, 32]
+    model.final_activation = None
+
     # SDE
-    sde                 = "VP"
-    t1                  = 1.
-    t0                  = 1e-5
-    dt                  = 0.1
-    beta_integral       = lambda t: t 
-    N                   = 1000
+    config.sde = sde = ml_collections.ConfigDict()
+    sde.sde                = "VP"
+    sde.t1                 = 1.
+    sde.t0                 = 1e-5
+    sde.dt                 = 0.1
+    sde.beta_integral      = lambda t: t 
+    sde.N                  = 1000
+
     # Sampling
-    sample_size         = 8
-    exact_logp          = False
-    ode_sample          = True
-    eu_sample           = True
-    use_ema             = False
+    config.sample_size     = 8
+    config.exact_logp      = False
+    config.ode_sample      = True
+    config.eu_sample       = True
+    config.use_ema         = False
+
     # Optimisation hyperparameters
-    start_step          = 0
-    n_steps             = 1_000_000
-    lr                  = 1e-4
-    batch_size          = 256 
-    print_every         = 1_000
-    opt                 = "adabelief"
-    opt_kwargs          = {}
-    num_workers         = 8
+    config.start_step      = 0
+    config.n_steps         = 1_000_000
+    config.lr              = 1e-4
+    config.batch_size      = 256 
+    config.print_every     = 1_000
+    config.opt             = "adabelief"
+    config.opt_kwargs      = {}
+    config.num_workers     = 8
+
     # Other
-    cmap                = "gray_r" 
+    config.cmap            = "gray_r" 
+
+    return config

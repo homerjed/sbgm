@@ -1,20 +1,17 @@
-from .quijote import QuijoteConfig
-from .mnist import MNISTConfig
-from .cifar10 import CIFAR10Config 
-from .flowers import FlowersConfig 
+from .quijote import quijote_config 
+from .mnist import mnist_config
+from .cifar10 import cifar10_config 
+from .flowers import flowers_config 
 from .moons import MoonsConfig
 from .dgdm import DgdmConfig 
-from .grfs import GRFConfig
-
-Config = QuijoteConfig | MoonsConfig | MNISTConfig | CIFAR10Config | FlowersConfig | GRFConfig
+from .grfs import grfs_config
 
 __all__ = [
-    Config, 
-    QuijoteConfig, 
+    quijote_config, 
+    mnist_config,
+    cifar10_config,
+    flowers_config,
     MoonsConfig, 
-    MNISTConfig, 
-    CIFAR10Config,
-    FlowersConfig,
     DgdmConfig,
-    GRFConfig
+    grfs_config
 ]

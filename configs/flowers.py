@@ -1,38 +1,56 @@
-class FlowersConfig:
-    seed                = 0
+import ml_collections
+
+
+def flowers_config():
+    config = ml_collections.ConfigDict()
+
+    config.seed            = 0
+
     # Data
-    dataset_name        = "flowers" 
-    n_pix               = 64 
+    config.dataset_name    = "flowers" 
+    config.n_pix           = 64 
+
     # Model
-    model_type: str     = "UNet"
-    model_args          = dict(
-        is_biggan=False,
-        dim_mults=[1, 1, 1],
-        hidden_size=256,
-        heads=2, 
-        dim_head=64,
-        dropout_rate=0.3,
-        num_res_blocks=2,
-        attn_resolutions=[8, 32, 64]
-    )
-    use_ema             = False
+    config.model = model = ml_collections.ConfigDict()
+    model.model_type       = "UNet"
+    model.is_biggan        = False
+    model.dim_mults        = [1, 1, 1]
+    model.hidden_size      = 256
+    model.heads            = 2
+    model.dim_head         = 64
+    model.dropout_rate     = 0.3
+    model.num_res_blocks   = 2
+    model.attn_resolutions = [8, 32, 64]
+    model.final_activation = None
+
     # SDE
-    t1                  = 8.
-    t0                  = 1e-5 
-    dt                  = 0.1
-    beta_integral       = lambda t: t 
+    config.sde = sde = ml_collections.ConfigDict()
+    sde.sde                = "VP" 
+    sde.t1                 = 8.
+    sde.t0                 = 1e-5 
+    sde.dt                 = 0.1
+    sde.beta_integral      = lambda t: t 
+    sde.N                  = 1000
     # sde: SDE            = VPSDE(beta_integral, dt=dt, t0=t0, t1=t1)
+
     # Sampling
-    sample_size         = 5
-    exact_logp          = False
-    ode_sample          = True
-    eu_sample           = True
+    config.sample_size     = 5
+    config.exact_logp      = False
+    config.ode_sample      = True
+    config.eu_sample       = True
+
     # Optimisation hyperparameters
-    start_step          = 0
-    n_steps             = 1_000_000
-    lr                  = 1e-4
-    batch_size          = 64 #128 #256
-    print_every         = 1_000
-    opt                 = "adabelief"
+    config.use_ema         = False
+    config.start_step      = 0
+    config.n_steps         = 1_000_000
+    config.lr              = 1e-4
+    config.batch_size      = 64 #128 #256
+    config.print_every     = 1_000
+    config.opt             = "adabelief"
+    config.opt_kwargs      = {}
+    config.num_workers     = 8
+
     # Other
-    cmap                = None
+    config.cmap            = None
+
+    return config

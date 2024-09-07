@@ -1,5 +1,4 @@
 import os
-from copy import deepcopy
 from typing import Sequence
 import jax
 import jax.numpy as jnp
@@ -8,10 +7,9 @@ import equinox as eqx
 from jaxtyping import Key
 import optax
 import numpy as np 
-from tqdm import trange
+import ml_collections
 
 import sbgm
-from sbgm import utils 
 import data 
 import configs 
 
@@ -22,7 +20,7 @@ def get_model(
     data_shape: Sequence[int], 
     context_shape: Sequence[int], 
     parameter_dim: int,
-    config: configs.Config
+    config: ml_collections.ConfigDict
 ) -> eqx.Module:
     if model_type == "Mixer":
         model = sbgm.models.Mixer2d(
@@ -36,14 +34,30 @@ def get_model(
     if model_type == "UNet":
         model = sbgm.models.UNet(
             data_shape=data_shape,
-            **config.model_args,
+            is_biggan=config.model.is_biggan,
+            dim_mults=config.model.dim_mults,
+            hidden_size=config.model.hidden_size,
+            heads=config.model.heads,
+            dim_head=config.model.dim_head,
+            dropout_rate=config.model.dropout_rate,
+            num_res_blocks=config.model.num_res_blocks,
+            attn_resolutions=config.model.attn_resolutions,
+            final_activation=config.model.final_activation,
             a_dim=parameter_dim,
             key=model_key
         )
     if model_type == "UNetXY":
         model = sbgm.models.UNetXY(
             data_shape=data_shape,
-            **config.model_args,
+            is_biggan=config.model.is_biggan,
+            dim_mults=config.model.dim_mults,
+            hidden_size=config.model.hidden_size,
+            heads=config.model.heads,
+            dim_head=config.model.dim_head,
+            dropout_rate=config.model.dropout_rate,
+            num_res_blocks=config.model.num_res_blocks,
+            attn_resolutions=config.model.attn_resolutions,
+            final_activation=config.model.final_activation,
             q_dim=context_shape[0], # Just grab channel assuming 'q' is a map like x
             a_dim=parameter_dim,
             key=model_key
@@ -61,7 +75,7 @@ def get_model(
 
 
 def get_dataset(
-    dataset_name: str, key: Key, config: configs.Config
+    dataset_name: str, key: Key, config: ml_collections.ConfigDict
 ) -> data.ScalerDataset:
     if dataset_name == "flowers":
         dataset = data.flowers(key, n_pix=config.n_pix)
@@ -73,10 +87,12 @@ def get_dataset(
         dataset = data.moons(key)
     if dataset_name == "grfs":
         dataset = data.grfs(key, n_pix=config.n_pix)
+    if dataset_name == "quijote":
+        dataset = data.quijote(key, n_pix=config.n_pix, split=0.9)
     return dataset
 
 
-def get_sde(config: configs.Config) -> sbgm.sde.SDE:
+def get_sde(config: ml_collections.ConfigDict) -> sbgm.sde.SDE:
     name = config.sde + "SDE"
     assert name in ["VESDE", "VPSDE", "SubVPSDE"]
     sde = getattr(sbgm.sde, name)
@@ -89,162 +105,8 @@ def get_sde(config: configs.Config) -> sbgm.sde.SDE:
     )
 
 
-def get_opt(
-    config: configs.Config
-) -> optax.GradientTransformation:
+def get_opt(config: ml_collections.ConfigDict):
     return getattr(optax, config.opt)(config.lr, **config.opt_kwargs)
-
-
-def train(
-    key, 
-    # Diffusion model and SDE
-    model, 
-    sde,
-    # Dataset
-    dataset,
-    # Experiment config
-    config,
-    # Reload optimiser or not
-    reload_opt_state=False,
-    # Sharding of devices to run on
-    sharding=None,
-    # Location to save model, figs, .etc in
-    save_dir=None,
-):
-    print(f"Training SGM with {config.sde} SDE on {config.dataset_name} dataset.")
-
-    # Experiment and image save directories
-    exp_dir, img_dir = utils.make_dirs(save_dir, config)
-
-    # Plot SDE over time 
-    utils.plot_sde(sde, filename=os.path.join(exp_dir, "sde.png"))
-
-    # Plot a sample of training data
-    utils.plot_train_sample(
-        dataset, 
-        sample_size=config.sample_size,
-        cmap=config.cmap,
-        vs=None,
-        filename=os.path.join(img_dir, "data.png")
-    )
-
-    # Model and optimiser save filenames
-    model_filename = os.path.join(
-        exp_dir, f"sgm_{dataset.name}_{config.model_type}.eqx"
-    )
-    state_filename = os.path.join(
-        exp_dir, f"state_{dataset.name}_{config.model_type}.obj"
-    )
-
-    # Reload optimiser and state if so desired
-    opt = get_opt(config)
-    if not reload_opt_state:
-        opt_state = opt.init(eqx.filter(model, eqx.is_inexact_array))
-        start_step = 0
-    else:
-        state = utils.load_opt_state(filename=state_filename)
-        model = utils.load_model(model, model_filename)
-
-        opt, opt_state, start_step = state.values()
-
-        print("Loaded model and optimiser state.")
-
-    train_key, sample_key, valid_key = jr.split(key, 3)
-
-    train_total_value = 0
-    valid_total_value = 0
-    train_total_size = 0
-    valid_total_size = 0
-    train_losses = []
-    valid_losses = []
-    dets = []
-
-    if config.use_ema:
-        ema_model = deepcopy(model)
-
-    with trange(start_step, config.n_steps, colour="red") as steps:
-        for step, train_batch, valid_batch in zip(
-            steps, 
-            dataset.train_dataloader.loop(config.batch_size), 
-            dataset.valid_dataloader.loop(config.batch_size)
-        ):
-            # Train
-            x, q, a = sbgm.shard.shard_batch(train_batch, sharding)
-            _Lt, model, train_key, opt_state = sbgm.train.make_step(
-                model, sde, x, q, a, train_key, opt_state, opt.update
-            )
-
-            train_total_value += _Lt.item()
-            train_total_size += 1
-            train_losses.append(train_total_value / train_total_size)
-
-            if config.use_ema:
-                ema_model = sbgm.apply_ema(ema_model, model)
-
-            # Validate
-            x, q, a = sbgm.shard.shard_batch(valid_batch, sharding)
-            _Lv = sbgm.train.evaluate(
-                ema_model if config.use_ema else model, sde, x, q, a, valid_key
-            )
-
-            valid_total_value += _Lv.item()
-            valid_total_size += 1
-            valid_losses.append(valid_total_value / valid_total_size)
-
-            steps.set_postfix(
-                {
-                    "Lt" : f"{train_losses[-1]:.3E}",
-                    "Lv" : f"{valid_losses[-1]:.3E}"
-                }
-            )
-
-            if (step % config.print_every) == 0 or step == config.n_steps - 1:
-                # Sample model
-                key_Q, key_sample = jr.split(sample_key) # Fixed key
-                sample_keys = jr.split(key_sample, config.sample_size ** 2)
-
-                # Sample random labels or use parameter prior for labels
-                Q, A = data.get_labels(key_Q, dataset.name, config)
-
-                # EU sampling
-                if config.eu_sample:
-                    sample_fn = sbgm.sample.get_eu_sample_fn(
-                        ema_model if config.use_ema else model, sde, dataset.data_shape
-                    )
-                    eu_sample = jax.vmap(sample_fn)(sample_keys, Q, A)
-
-                # ODE sampling
-                if config.ode_sample:
-                    sample_fn = sbgm.sample.get_ode_sample_fn(
-                        ema_model if config.use_ema else model, sde, dataset.data_shape
-                    )
-                    ode_sample = jax.vmap(sample_fn)(sample_keys, Q, A)
-
-                # Sample images and plot
-                utils.plot_model_sample(
-                    eu_sample,
-                    ode_sample,
-                    dataset,
-                    config,
-                    filename=os.path.join(img_dir, f"samples_{step:06d}"),
-                )
-
-                # Save model
-                utils.save_model(
-                    ema_model if config.use_ema else model, model_filename
-                )
-
-                # Save optimiser state
-                utils.save_opt_state(
-                    opt, 
-                    opt_state, 
-                    i=step, 
-                    filename=state_filename
-                )
-
-                # Plot losses etc
-                utils.plot_metrics(train_losses, valid_losses, dets, step, exp_dir)
-    return model
 
 
 def main():
@@ -253,13 +115,14 @@ def main():
     """
 
     config = [
-        configs.MNISTConfig,
-        configs.GRFConfig,
-        configs.FlowersConfig,
-        configs.CIFAR10Config
-    ][0]
+        configs.mnist_config(),
+        configs.grfs_config(),
+        configs.flowers_config(),
+        configs.cifar10_config(),
+        configs.quijote_config()
+    ][-1]
 
-    root_dir = "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_lib/sgm/"
+    root_dir = "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_lib/sbgm/"
 
     key = jr.key(config.seed)
     data_key, model_key, train_key = jr.split(key, 3)
@@ -270,11 +133,11 @@ def main():
     parameter_dim    = dataset.parameter_dim
     sharding         = sbgm.shard.get_sharding()
     reload_opt_state = False # Restart training or not
-
+        
     # Diffusion model 
     model = get_model(
         model_key, 
-        config.model_type, 
+        config.model.model_type, 
         data_shape, 
         context_shape, 
         parameter_dim,
@@ -282,10 +145,10 @@ def main():
     )
 
     # Stochastic differential equation (SDE)
-    sde = get_sde(config)
+    sde = get_sde(config.sde)
 
     # Fit model to dataset
-    model = train(
+    model = sbgm.train.train(
         train_key,
         model,
         sde,

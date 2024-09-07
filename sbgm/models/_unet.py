@@ -266,7 +266,6 @@ class UNet(eqx.Module):
         key,
     ):
         keys = jax.random.split(key, 7)
-        # del key
 
         data_channels, in_height, in_width = data_shape
 
@@ -282,8 +281,9 @@ class UNet(eqx.Module):
             activation=jax.nn.silu,
             key=keys[0],
         )
+
         self.first_conv = eqx.nn.Conv2d(
-            data_channels + a_dim if a_dim is not None else data_channels,
+            data_channels + 1 if a_dim is not None else data_channels, 
             hidden_size, 
             kernel_size=3, 
             padding=1, 

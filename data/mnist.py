@@ -47,6 +47,12 @@ def mnist(key: Key) -> ScalerDataset:
     valid_dataloader = _InMemoryDataLoader(
         valid_data, Q=None, A=valid_targets, key=key_valid
     )
+
+    def label_fn(key, n):
+        Q = None
+        A = jr.choice(key, jnp.arange(10), (n,))[:, jnp.newaxis]
+        return Q, A
+
     return ScalerDataset(
         name="mnist",
         train_dataloader=train_dataloader,
@@ -54,5 +60,6 @@ def mnist(key: Key) -> ScalerDataset:
         data_shape=data_shape,
         context_shape=None,
         parameter_dim=parameter_dim,
-        scaler=scaler
+        scaler=scaler,
+        label_fn=label_fn
     )

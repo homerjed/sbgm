@@ -1,10 +1,12 @@
 import jax.random as jr 
+import jax.numpy as jnp
+from jaxtyping import Key
 from torchvision import transforms, datasets
 
 from .utils import Scaler, ScalerDataset, _TorchDataLoader
 
 
-def cifar10(key: jr.PRNGKey) -> ScalerDataset:
+def cifar10(key: Key) -> ScalerDataset:
     key_train, key_valid = jr.split(key)
     n_pix = 32 # Native resolution for CIFAR10 
     data_shape = (3, n_pix, n_pix)
@@ -49,6 +51,12 @@ def cifar10(key: jr.PRNGKey) -> ScalerDataset:
     valid_dataloader = _TorchDataLoader(
         valid_dataset, data_shape, context_shape=None, parameter_dim=parameter_dim, key=key_valid
     )
+
+    def label_fn(key, n):
+        Q = None
+        A = jr.choice(key, jnp.arange(10), (n,))[:, jnp.newaxis]
+        return Q, A
+
     return ScalerDataset(
         name="cifar10",
         train_dataloader=train_dataloader,
@@ -56,5 +64,6 @@ def cifar10(key: jr.PRNGKey) -> ScalerDataset:
         data_shape=data_shape,
         parameter_dim=parameter_dim,
         context_shape=None,
-        scaler=scaler
+        scaler=scaler,
+        label_fn=label_fn
     )
