@@ -1,5 +1,5 @@
 [project]
-name = "sgm"
+name = "sgmjax"
 version = "0.0.0"
 description = "Score-based Diffusion models in JAX."
 readme = "README.md"
