@@ -1,6 +1,6 @@
 [project]
 name = "sbgm"
-version = "0.0.4"
+version = "0.0.6"
 description = "Score-based Diffusion models in JAX."
 readme = "README.md"
 requires-python ="~=3.12"
