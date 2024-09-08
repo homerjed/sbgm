@@ -6,8 +6,8 @@ import jax.random as jr
 import equinox as eqx
 from jaxtyping import Key, Array
 
+from .sde import SDE
 from ._ode import get_solver
-from ._sde import SDE
 
 
 @eqx.filter_jit

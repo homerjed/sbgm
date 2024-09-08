@@ -9,11 +9,11 @@ import jax.random as jr
 import jax.tree_util as jtu
 import equinox as eqx
 from jaxtyping import PyTree, Key, Array
-import ml_collections
+from ml_collections import ConfigDict
 import optax
 from tqdm import trange
 
-from ._sde import SDE
+from .sde import SDE
 from ._sample import get_eu_sample_fn, get_ode_sample_fn
 from ._shard import shard_batch
 from ._misc import (
@@ -128,7 +128,7 @@ def evaluate(
     return loss 
 
 
-def get_opt(config: ml_collections.ConfigDict):
+def get_opt(config: ConfigDict):
     return getattr(optax, config.opt)(config.lr, **config.opt_kwargs)
 
 
@@ -140,7 +140,7 @@ def train(
     # Dataset
     dataset: dataclass,
     # Experiment config
-    config: ml_collections.ConfigDict,
+    config: ConfigDict,
     # Reload optimiser or not
     reload_opt_state: bool = False,
     # Sharding of devices to run on

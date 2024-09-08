@@ -6,7 +6,7 @@ import equinox as eqx
 import diffrax as dfx
 from jaxtyping import Key, Array
 
-from ._sde import SDE
+from .sde._sde import SDE
 
 
 def get_solver() -> dfx.AbstractSolver:

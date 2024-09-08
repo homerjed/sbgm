@@ -59,15 +59,57 @@ but note that maximum-likelihood training is prohibitively expensive for SDE bas
 ### Usage
 
 Install via
-<!-- ```
-pip install -e .
-``` -->
 ```
 pip install sbgm
 ```
 to run
 ```
 python main.py
+```
+
+or something like
+
+```python
+import sbgm
+import data
+import configs
+
+datasets_path = "."
+root_dir = "."
+
+config = configs.cifar10_config()
+
+key = jr.key(config.seed)
+data_key, model_key, train_key = jr.split(key, 3)
+
+dataset = data.cifar10(datasets_path, data_key)
+
+sharding = sbgm.shard.get_sharding()
+    
+# Diffusion model 
+model = sbgm.models.get_model(
+    model_key, 
+    config.model.model_type, 
+    dataset.data_shape, 
+    dataset.context_shape, 
+    dataset.parameter_dim,
+    config
+)
+
+# Stochastic differential equation (SDE)
+sde = sbgm.sde.get_sde(config.sde)
+
+# Fit model to dataset
+model = sbgm.train.train(
+    train_key,
+    model,
+    sde,
+    dataset,
+    config,
+    reload_opt_state=False,
+    sharding=sharding,
+    save_dir=root_dir
+)
 ```
 
 ### Features

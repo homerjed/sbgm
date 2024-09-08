@@ -7,7 +7,7 @@ from torchvision import transforms, datasets
 from .utils import Scaler, ScalerDataset, _TorchDataLoader
 
 
-def cifar10(path:str, key: Key) -> ScalerDataset:
+def cifar10(path: str, key: Key) -> ScalerDataset:
     key_train, key_valid = jr.split(key)
     n_pix = 32 # Native resolution for CIFAR10 
     data_shape = (3, n_pix, n_pix)

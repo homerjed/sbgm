@@ -1,4 +1,4 @@
-from . import _sde as sde
+from . import sde as sde
 from . import _ode as ode
 from . import _train as train
 from . import _sample as sample

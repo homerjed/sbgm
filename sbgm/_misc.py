@@ -3,10 +3,16 @@ import cloudpickle
 import jax
 import jax.numpy as jnp
 import equinox as eqx
+import optax
 import numpy as np
 import einops
+from ml_collections import ConfigDict
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+
+def get_opt(config: ConfigDict):
+    return getattr(optax, config.opt)(config.lr, **config.opt_kwargs)
 
 
 def load_model(model, filename):
@@ -58,24 +64,12 @@ def plot_model_sample(eu_sample, ode_sample, dataset, config, filename):
         sample = jnp.clip(sample, 0., 1.) 
         return sample
 
-    # key_Q, key_sample = jr.split(key)
-    # sample_keys = jr.split(key_sample, config.sample_size ** 2)
-
-    # Sample random labels or use parameter prior for labels
-    # Q, A = data.get_labels(key_Q, dataset.name, config)
-
     # EU sampling
-    # if config.eu_sample:
-        # sample_fn = sgm.sample.get_eu_sample_fn(model, sde, dataset.data_shape)
-        # sample = jax.vmap(sample_fn)(sample_keys, Q, A)
     if eu_sample is not None:
         eu_sample = rescale(eu_sample)
         plot_sample(eu_sample, mode="eu")
 
     # ODE sampling
-    # if config.ode_sample:
-        # sample_fn = sgm.sample.get_ode_sample_fn(model, sde, dataset.data_shape)
-        # sample = jax.vmap(sample_fn)(sample_keys, Q, A)
     if ode_sample is not None:
         ode_sample = rescale(ode_sample)
         plot_sample(ode_sample, mode="ode")
