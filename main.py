@@ -10,7 +10,7 @@ def main():
         Fit a score-based diffusion model.
     """
 
-    datasets_path = "/project/ls-gruen/users/jed.homer/"
+    datasets_path = "./datasets/"
     root_dir = "./"
 
     config = [
