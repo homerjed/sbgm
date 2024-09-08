@@ -118,6 +118,7 @@ model = sbgm.train.train(
 * UNet and transformer score network implementations,
 * VP, SubVP and VE SDEs (neural network $\beta(t)$ and $\sigma(t)$ functions are on the list!),
 * Multi-modal conditioning (basically just optional parameter and image conditioning methods),
+* Checkpointing optimiser and model,
 * Multi-device training and sampling.
 
 ### Samples
@@ -170,7 +171,3 @@ ODE sampling
       url={https://arxiv.org/abs/2101.09258}, 
 }
 ```
-
-<!-- <p align="center">
-  <img src="figs/flowers_eu.png" width="350" title="hover text">
-</p> -->

@@ -12,7 +12,7 @@ def grfs_config():
 
     # Model
     config.model = model = ml_collections.ConfigDict()
-    model.model_type       = "UNetXY"
+    model.model_type       = "UNet"
     model.is_biggan        = False
     model.dim_mults        = [1, 1, 1]
     model.hidden_size      = 128

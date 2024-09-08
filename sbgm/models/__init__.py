@@ -1,12 +1,12 @@
 from typing import Sequence
 import equinox as eqx
 from jaxtyping import Key
+import numpy as np
 import ml_collections
 
 from ._mixer import Mixer2d
 from ._mlp import ResidualNetwork 
 from ._unet import UNet
-from ._unet_xy import UNetXY
 
 
 def get_model(
@@ -17,6 +17,12 @@ def get_model(
     parameter_dim: int,
     config: ml_collections.ConfigDict
 ) -> eqx.Module:
+    # Grab channel assuming 'q' is a map like x
+    if context_shape is not None:
+        context_channels, *_ = context_shape.shape 
+    else:
+        context_channels = None
+
     if model_type == "Mixer":
         model = Mixer2d(
             data_shape,
@@ -26,7 +32,7 @@ def get_model(
             mix_hidden_size=config.model.mix_hidden_size,
             num_blocks=config.model.num_blocks,
             t1=config.t1,
-            q_dim=context_shape,
+            q_dim=context_channels,
             a_dim=parameter_dim,
             key=model_key
         )
@@ -42,22 +48,7 @@ def get_model(
             num_res_blocks=config.model.num_res_blocks,
             attn_resolutions=config.model.attn_resolutions,
             final_activation=config.model.final_activation,
-            a_dim=parameter_dim,
-            key=model_key
-        )
-    if model_type == "UNetXY":
-        model = UNetXY(
-            data_shape=data_shape,
-            is_biggan=config.model.is_biggan,
-            dim_mults=config.model.dim_mults,
-            hidden_size=config.model.hidden_size,
-            heads=config.model.heads,
-            dim_head=config.model.dim_head,
-            dropout_rate=config.model.dropout_rate,
-            num_res_blocks=config.model.num_res_blocks,
-            attn_resolutions=config.model.attn_resolutions,
-            final_activation=config.model.final_activation,
-            q_dim=context_shape[0], # Just grab channel assuming 'q' is a map like x
+            q_dim=context_channels, 
             a_dim=parameter_dim,
             key=model_key
         )
@@ -68,9 +59,11 @@ def get_model(
             depth=config.model.depth,
             activation=config.model.activation,
             dropout_p=config.model.dropout_p,
-            y_dim=parameter_dim,
+            q_dim=parameter_dim,
             key=model_key
         )
+    if model_type == "CCT":
+        raise NotImplementedError
     if model_type == "DiT":
         raise NotImplementedError
     return model

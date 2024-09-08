@@ -8,7 +8,7 @@ def quijote_config():
 
     # Data
     config.dataset_name    = "quijote" 
-    config.n_pix           = 32
+    config.n_pix           = 64
 
     # Model
     config.model = model = ml_collections.ConfigDict()

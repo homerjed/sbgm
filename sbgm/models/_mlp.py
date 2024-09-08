@@ -40,7 +40,7 @@ class ResidualNetwork(eqx.Module):
         in_size: int, 
         width_size: int, 
         depth: int, 
-        y_dim: int, 
+        q_dim: int, 
         activation: Callable,
         dropout_p: float = 0.,
         *, 
@@ -49,11 +49,11 @@ class ResidualNetwork(eqx.Module):
         """ Time-embedding may be necessary """
         in_key, *net_keys, out_key = jr.split(key, 2 + depth)
         self._in = Linear(
-            in_size + y_dim + 1, width_size, key=in_key
+            in_size + q_dim + 1, width_size, key=in_key
         )
         layers = [
             Linear(
-                width_size + y_dim + 1, width_size, key=_key
+                width_size + q_dim + 1, width_size, key=_key
             )
             for _key in net_keys 
         ]

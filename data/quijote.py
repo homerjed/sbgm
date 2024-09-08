@@ -56,7 +56,7 @@ def quijote(key, n_pix, split=0.5):
     key_train, key_valid = jr.split(key)
 
     data_shape = (1, n_pix, n_pix)
-    context_shape = (1, n_pix, n_pix)
+    context_shape = None #(1, n_pix, n_pix)
     parameter_dim = 5
 
     X, A = get_quijote_data(n_pix) 
