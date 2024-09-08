@@ -76,10 +76,10 @@ def get_model(
 
 def get_dataset(
     datasets_path: str,
-    dataset_name: str, 
     key: Key, 
     config: ml_collections.ConfigDict
 ) -> data.ScalerDataset:
+    dataset_name = config.dataset_name
     if dataset_name == "flowers":
         dataset = data.flowers(key, n_pix=config.n_pix)
     if dataset_name == "cifar10":
@@ -131,22 +131,19 @@ def main():
     key = jr.key(config.seed)
     data_key, model_key, train_key = jr.split(key, 3)
 
-    dataset          = get_dataset(
-        datasets_path, config.dataset_name, data_key, config
+    dataset = get_dataset(
+        datasets_path, data_key, config
     )
-    data_shape       = dataset.data_shape
-    context_shape    = dataset.context_shape
-    parameter_dim    = dataset.parameter_dim
-    sharding         = sbgm.shard.get_sharding()
+    sharding = sbgm.shard.get_sharding()
     reload_opt_state = False # Restart training or not
         
     # Diffusion model 
     model = get_model(
         model_key, 
         config.model.model_type, 
-        data_shape, 
-        context_shape, 
-        parameter_dim,
+        dataset.data_shape, 
+        dataset.context_shape, 
+        dataset.parameter_dim,
         config
     )
 
