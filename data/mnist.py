@@ -1,3 +1,4 @@
+import os
 import jax.random as jr 
 import jax.numpy as jnp
 from jaxtyping import Key, Array
@@ -11,7 +12,7 @@ def tensor_to_array(tensor: Tensor) -> Array:
     return jnp.asarray(tensor.numpy())
 
 
-def mnist(key: Key) -> ScalerDataset:
+def mnist(path:str, key: Key) -> ScalerDataset:
     key_train, key_valid = jr.split(key)
     data_shape = (1, 28, 28)
     parameter_dim = 1 
@@ -21,10 +22,14 @@ def mnist(key: Key) -> ScalerDataset:
     # MNIST is small enough that the whole dataset can be placed in memory, so
     # we can actually use a faster method of data loading.
     train_dataset = datasets.MNIST(
-        "datasets/" + "mnist", train=True, download=True
+        os.path.join(path, "datasets/mnist/"),
+        train=True, 
+        download=True
     )
     valid_dataset = datasets.MNIST(
-        "datasets/" + "mnist", train=False, download=True
+        os.path.join(path, "datasets/mnist/"),
+        train=False, 
+        download=True
     )
 
     # Scale the data to the range [0, 1] 

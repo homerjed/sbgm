@@ -11,7 +11,6 @@ from torchvision import transforms
 from .utils import Scaler, ScalerDataset, _TorchDataLoader, _InMemoryDataLoader
 
 data_dir = "/project/ls-gruen/users/jed.homer/data/fields/"
-quijote_dir = "/project/ls-gruen/users/jed.homer/quijote_pdfs/data/"
 
 
 class MapDataset(torch.utils.data.Dataset):
@@ -39,12 +38,9 @@ class MapDataset(torch.utils.data.Dataset):
         return self.tensors[0].size(0)
 
 
-def get_data(n_pix: int) -> Tuple[Array, Array]:
-    """
-        Load lognormal, gaussian or Quijote fields
-    """
+def get_quijote_data(n_pix: int) -> Tuple[Array, Array]:
     X = np.load(os.path.join(data_dir, "quijote_fields.npy"))[:, np.newaxis, ...]
-    A = np.load(os.path.join(quijote_dir, "ALL_LATIN_PDFS_PARAMETERS.npy"))
+    A = np.load(os.path.join(data_dir, "quijote_parameters.npy"))
 
     dx = int(256 / n_pix)
     X = X.reshape((-1, 1, n_pix, dx, n_pix, dx)).mean(axis=(3, 5))
@@ -52,8 +48,7 @@ def get_data(n_pix: int) -> Tuple[Array, Array]:
 
 
 def get_quijote_labels() -> Array:
-    """ Get labels only of fields dataset """
-    Q = np.load(os.path.join(quijote_dir, "ALL_LATIN_PDFS_PARAMETERS.npy"))
+    Q = np.load(os.path.join(data_dir, "quijote_parameters.npy"))
     return Q
 
 
@@ -64,7 +59,7 @@ def quijote(key, n_pix, split=0.5):
     context_shape = (1, n_pix, n_pix)
     parameter_dim = 5
 
-    X, A = get_data(n_pix) 
+    X, A = get_quijote_data(n_pix) 
 
     print("Quijote data:", X.shape, A.shape)
 

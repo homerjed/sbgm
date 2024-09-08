@@ -47,26 +47,20 @@ def get_data(key: Key, n_pix: int) -> Tuple[np.ndarray, np.ndarray]:
         Load Gaussian and lognormal fields
     """
 
-    if 0:
-        G = np.load(os.path.join(data_dir, f"G_{n_pix=}.npy"))
-        L = np.load(os.path.join(data_dir, f"LN_{n_pix=}.npy"))
-        Q = np.load(os.path.join(data_dir, f"field_parameters_{n_pix=}.npy"))
-    else:
-        key_A, key_B = jr.split(key)
-        Q = np.stack(
-            [
-                jr.uniform(key_A, (10_000,), minval=1., maxval=3.),
-                jr.uniform(key_B, (10_000,), minval=1., maxval=3.)
-            ],
-            axis=1
-        )
-        G, L = get_fields(key, Q, n_pix, n_fields=10_000)
+    key_A, key_B = jr.split(key)
+    Q = np.stack(
+        [
+            jr.uniform(key_A, (10_000,), minval=1., maxval=3.),
+            jr.uniform(key_B, (10_000,), minval=1., maxval=3.)
+        ],
+        axis=1
+    )
+    G, L = get_fields(key, Q, n_pix, n_fields=10_000)
 
-        np.save(os.path.join(data_dir, f"G_{n_pix=}.npy"), G)
-        np.save(os.path.join(data_dir, f"LN_{n_pix=}.npy"), L)
-        np.save(os.path.join(data_dir, f"field_parameters_{n_pix=}.npy"), Q)
+    np.save(os.path.join(data_dir, f"G_{n_pix=}.npy"), G)
+    np.save(os.path.join(data_dir, f"LN_{n_pix=}.npy"), L)
+    np.save(os.path.join(data_dir, f"field_parameters_{n_pix=}.npy"), Q)
 
-    # X = X.reshape((-1, 1, n_pix, dx, n_pix, dx)).mean(axis=(3, 5))
     return G, L, Q
 
 

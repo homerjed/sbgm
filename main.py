@@ -75,14 +75,17 @@ def get_model(
 
 
 def get_dataset(
-    dataset_name: str, key: Key, config: ml_collections.ConfigDict
+    datasets_path: str,
+    dataset_name: str, 
+    key: Key, 
+    config: ml_collections.ConfigDict
 ) -> data.ScalerDataset:
     if dataset_name == "flowers":
         dataset = data.flowers(key, n_pix=config.n_pix)
     if dataset_name == "cifar10":
-        dataset = data.cifar10(key)
+        dataset = data.cifar10(datasets_path, key)
     if dataset_name == "mnist":
-        dataset = data.mnist(key)
+        dataset = data.mnist(datasets_path, key)
     if dataset_name == "moons":
         dataset = data.moons(key)
     if dataset_name == "grfs":
@@ -114,6 +117,9 @@ def main():
         Fit a score-based diffusion model.
     """
 
+    datasets_path = "/project/ls-gruen/users/jed.homer/"
+    root_dir = "./"
+
     config = [
         configs.mnist_config(),
         configs.grfs_config(),
@@ -122,12 +128,12 @@ def main():
         configs.quijote_config()
     ][-1]
 
-    root_dir = "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_lib/sbgm/"
-
     key = jr.key(config.seed)
     data_key, model_key, train_key = jr.split(key, 3)
 
-    dataset          = get_dataset(config.dataset_name, data_key, config)
+    dataset          = get_dataset(
+        datasets_path, config.dataset_name, data_key, config
+    )
     data_shape       = dataset.data_shape
     context_shape    = dataset.context_shape
     parameter_dim    = dataset.parameter_dim

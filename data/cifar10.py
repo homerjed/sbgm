@@ -1,3 +1,4 @@
+import os
 import jax.random as jr 
 import jax.numpy as jnp
 from jaxtyping import Key
@@ -6,7 +7,7 @@ from torchvision import transforms, datasets
 from .utils import Scaler, ScalerDataset, _TorchDataLoader
 
 
-def cifar10(key: Key) -> ScalerDataset:
+def cifar10(path:str, key: Key) -> ScalerDataset:
     key_train, key_valid = jr.split(key)
     n_pix = 32 # Native resolution for CIFAR10 
     data_shape = (3, n_pix, n_pix)
@@ -31,15 +32,13 @@ def cifar10(key: Key) -> ScalerDataset:
         ]
     )
     train_dataset = datasets.CIFAR10(
-        # "datasets/" + "cifar10", 
-        "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_lib/sgm_with_sde_lib/datasets/cifar10/",
+        os.path.join(path, "datasets/cifar10/"),
         train=True, 
         download=True, 
         transform=train_transform
     )
     valid_dataset = datasets.CIFAR10(
-        # "datasets/" + "cifar10", 
-        "/project/ls-gruen/users/jed.homer/1pt_pdf/little_studies/sgm_lib/sgm_with_sde_lib/datasets/cifar10/",
+        os.path.join(path, "datasets/cifar10/"),
         train=False, 
         download=True, 
         transform=valid_transform
