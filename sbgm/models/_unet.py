@@ -415,6 +415,7 @@ class UNet(eqx.Module):
                 is_attn = True
             else:
                 is_attn = False
+
             res_blocks = []
             for _ in range(num_res_blocks - 1):
                 res_blocks.append(
@@ -533,6 +534,7 @@ class UNet(eqx.Module):
         for layer in self.final_conv_layers:
             h = layer(h)
         return self.final_activation(h) if self.final_activation is not None else h
+
 
 if __name__ == "__main__":
 
