@@ -58,12 +58,6 @@ class _InMemoryDataLoader(_AbstractDataLoader):
                 end = start + batch_size
 
 
-class Batch(NamedTuple):
-    x: Array
-    q: Array
-    a: Array
-
-
 class _TorchDataLoader(_AbstractDataLoader):
     def __init__(
         self, 
@@ -95,10 +89,6 @@ class _TorchDataLoader(_AbstractDataLoader):
         )
         while True:
             for tensors in dataloader:
-                # yield (
-                #     expand_if_scalar(jnp.asarray(tensor)) 
-                #     for tensor in tensors if tensor is not None
-                # )
 
                 x, *qa = tensors
                 if self.context_shape and self.parameter_dim:
@@ -112,24 +102,11 @@ class _TorchDataLoader(_AbstractDataLoader):
                         (a,) = qa
                     else:
                         a = None
-                yield ( # Batch
+                yield ( 
                     jnp.asarray(x),
                     expand_if_scalar(jnp.asarray(q)) if self.context_shape else None,
                     expand_if_scalar(jnp.asarray(a)) if self.parameter_dim else None
                 )
-
-
-@dataclass
-class Dataset:
-    name: str
-    train_dataloader: Union[_TorchDataLoader | _InMemoryDataLoader]
-    valid_dataloader: Union[_TorchDataLoader | _InMemoryDataLoader]
-    data_shape: Tuple[int]
-    context_shape: Tuple[int]
-    mean: jax.Array
-    std: jax.Array
-    max: jax.Array
-    min: jax.Array
 
 
 class Scaler:

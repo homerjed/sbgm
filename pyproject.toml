@@ -8,7 +8,13 @@ license = {file = "LICENSE"}
 authors = [
   {name = "Jed Homer", email = "jedhmr@gmail.com"},
 ]
-keywords = ["jax", "neural-networks", "deep-learning", "generative-models"]
+keywords = [
+    "jax", 
+    "deep-learning", 
+    "generative-models", 
+    "diffusion-models",
+    "score-based-diffusion"
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",

@@ -1,7 +1,14 @@
 <h1 align='center'>sbgm</h1>
 <h2 align='center'>Score-based Diffusion models in JAX</h2>
 
-Implementation and extension of [Score-Based Generative Modeling through Stochastic Differential Equations (Song++20)](https://arxiv.org/abs/2011.13456) and [Maximum Likelihood Training of Score-Based Diffusion Models (Song++21)](https://arxiv.org/abs/2101.09258) in `jax` and `equinox`. 
+Implementation and extension of 
+* [Score-Based Generative Modeling through Stochastic Differential Equations (Song++20)](https://arxiv.org/abs/2011.13456)
+
+and 
+
+* [Maximum Likelihood Training of Score-Based Diffusion Models (Song++21)](https://arxiv.org/abs/2101.09258) 
+
+in `jax` and `equinox`. 
 
 > [!WARNING]
 > :building_construction: Note this repository is under construction, expect changes. :building_construction:
