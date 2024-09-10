@@ -1,5 +1,5 @@
 <h1 align='center'>sbgm</h1>
-<h2 align='center'>Score-based Diffusion models in JAX</h2>
+<h2 align='center'>Score-Based Diffusion Models in JAX</h2>
 
 Implementation and extension of 
 * [Score-Based Generative Modeling through Stochastic Differential Equations (Song++20)](https://arxiv.org/abs/2011.13456)
@@ -17,6 +17,8 @@ in `jax` and `equinox`.
 
 Diffusion models are deep hierarchical models for data that use neural networks to model the reverse of a diffusion process that adds a sequence of noise perturbations to the data. 
 
+Modern cutting-edge diffusion models (see citations) express both the forward and reverse diffusion processes as a Stochastic Differential Equation (SDE).
+
 -----
 
 <p align="center">
@@ -27,8 +29,6 @@ Diffusion models are deep hierarchical models for data that use neural networks 
 <!-- $\nabla_{\boldsymbol{x}} \log p_t(\boldsymbol{x}_t)$ -->
 
 -----
-
-Modern cutting-edge diffusion models (see citations) express both the forward and reverse diffusion processes as a Stochastic Differential Equation (SDE).
 
 For any SDE of the form 
 

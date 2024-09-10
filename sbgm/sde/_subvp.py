@@ -86,6 +86,6 @@ class SubVPSDE(SDE):
         return jr.normal(key, shape)
 
     def prior_log_prob(self, z):
-        return jax.vmap(_get_log_prob_fn(scale=1.))(z)
+        return _get_log_prob_fn(scale=1.)(z)
 
 

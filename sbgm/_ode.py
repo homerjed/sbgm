@@ -75,7 +75,7 @@ def log_likelihood(
 ) -> Tuple[Array, Array]:
     """ Compute log-likelihood by solving ODE """
 
-    model = eqx.tree_inference(model, True)
+    model = eqx.nn.inference_mode(model, True)
 
     reverse_sde = sde.reverse(model, probability_flow=True)
 
@@ -113,7 +113,8 @@ def log_likelihood(
         adjoint=dfx.DirectAdjoint()
     ) 
     (z,), (delta_log_likelihood,) = sol.ys
-    log_p_y = sde.prior_log_prob(z) + delta_log_likelihood # NOTE: sum() of prior log prob?
+    p_z = sde.prior_log_prob(z).sum()
+    log_p_y = p_z + delta_log_likelihood 
     return z, log_p_y
 
 

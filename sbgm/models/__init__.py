@@ -59,7 +59,7 @@ def get_model(
             depth=config.model.depth,
             activation=config.model.activation,
             dropout_p=config.model.dropout_p,
-            q_dim=parameter_dim,
+            a_dim=parameter_dim,
             key=model_key
         )
     if model_type == "CCT":

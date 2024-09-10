@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Union
+from typing import Tuple, Callable, Union, Optional
 import jax
 import jax.numpy as jnp
 import jax.random as jr
@@ -34,14 +34,15 @@ class ResidualNetwork(eqx.Module):
     dropouts: Tuple[eqx.nn.Dropout]
     _out: Linear
     activation: Callable
+    a_dim: Optional[int] = None
 
     def __init__(
         self, 
         in_size: int, 
         width_size: int, 
-        depth: int, 
-        q_dim: int, 
-        activation: Callable,
+        depth: Optional[int] = None, 
+        a_dim: Optional[int] = None, 
+        activation: Callable = jax.nn.tanh,
         dropout_p: float = 0.,
         *, 
         key: Key
@@ -49,11 +50,15 @@ class ResidualNetwork(eqx.Module):
         """ Time-embedding may be necessary """
         in_key, *net_keys, out_key = jr.split(key, 2 + depth)
         self._in = Linear(
-            in_size + q_dim + 1, width_size, key=in_key
+            in_size + a_dim + 1 if a_dim is not None else in_size + 1, 
+            width_size, 
+            key=in_key
         )
         layers = [
             Linear(
-                width_size + q_dim + 1, width_size, key=_key
+                width_size + a_dim + 1 if a_dim is not None else width_size + 1, 
+                width_size, 
+                key=_key
             )
             for _key in net_keys 
         ]
@@ -67,23 +72,31 @@ class ResidualNetwork(eqx.Module):
         self.layers = tuple(layers)
         self.dropouts = tuple(dropouts)
         self.activation = activation
+        self.a_dim = a_dim
     
     def __call__(
         self, 
         t: Union[float, Array], 
         x: Array, 
-        y: Array, 
+        q: Array, 
+        a: Array, 
         *, 
         key: Key = None
     ) -> Array:
         t = jnp.atleast_1d(t)
-        xyt = jnp.concatenate([x, y, t])
-        h0 = self._in(xyt)
+        if a is not None and self.a_dim is not None:
+            xat = jnp.concatenate([x, a, t]) 
+        else:
+            xat = jnp.concatenate([x, t])
+        h0 = self._in(xat)
         h = h0
         for l, d in zip(self.layers, self.dropouts):
             # Condition on time at each layer
-            hyt = jnp.concatenate([h, y, t])
-            h = l(hyt)
+            if a is not None and self.a_dim is not None:
+                hat = jnp.concatenate([h, a, t]) 
+            else:
+                hat = jnp.concatenate([h, t])
+            h = l(hat)
             h = d(h, key=key)
             h = self.activation(h)
         o = self._out(h0 + h)

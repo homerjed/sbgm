@@ -105,7 +105,7 @@ def make_step(
     opt_state: OptState, 
     opt_update: TransformUpdateFn
 ) -> Tuple[Array, Model, Key, OptState]:
-    model = eqx.tree_inference(model, False)
+    model = eqx.nn.inference_mode(model, False)
     loss_fn = eqx.filter_value_and_grad(batch_loss_fn)
     loss, grads = loss_fn(model, sde, x, q, a, key)
     updates, opt_state = opt_update(grads, opt_state)
@@ -123,7 +123,7 @@ def evaluate(
     a: Array, 
     key: Key
 ) -> Array:
-    model = eqx.tree_inference(model, True)
+    model = eqx.nn.inference_mode(model, True)
     loss = batch_loss_fn(model, sde, x, q, a, key)
     return loss 
 
@@ -146,24 +146,13 @@ def train(
     # Sharding of devices to run on
     sharding: Optional[jax.sharding.Sharding] = None,
     # Location to save model, figs, .etc in
-    save_dir: Optional[str] = None
+    save_dir: Optional[str] = None,
+    plot_train_data: bool = False
 ):
     print(f"Training SGM with {config.sde.sde} SDE on {config.dataset_name} dataset.")
 
     # Experiment and image save directories
     exp_dir, img_dir = make_dirs(save_dir, config)
-
-    # Plot SDE over time 
-    plot_sde(sde, filename=os.path.join(exp_dir, "sde.png"))
-
-    # Plot a sample of training data
-    plot_train_sample(
-        dataset, 
-        sample_size=config.sample_size,
-        cmap=config.cmap,
-        vs=None,
-        filename=os.path.join(img_dir, "data.png")
-    )
 
     # Model and optimiser save filenames
     model_filename = os.path.join(
@@ -172,6 +161,19 @@ def train(
     state_filename = os.path.join(
         exp_dir, f"state_{dataset.name}_{config.model.model_type}.obj"
     )
+
+    # Plot SDE over time 
+    plot_sde(sde, filename=os.path.join(exp_dir, "sde.png"))
+
+    # Plot a sample of training data
+    if plot_train_data:
+        plot_train_sample(
+            dataset, 
+            sample_size=config.sample_size,
+            cmap=config.cmap,
+            vs=None,
+            filename=os.path.join(img_dir, "data.png")
+        )
 
     # Reload optimiser and state if so desired
     opt = get_opt(config)
@@ -194,7 +196,6 @@ def train(
     valid_total_size = 0
     train_losses = []
     valid_losses = []
-    dets = []
 
     if config.use_ema:
         ema_model = deepcopy(model)
@@ -258,13 +259,14 @@ def train(
                     ode_sample = jax.vmap(sample_fn)(sample_keys, Q, A)
 
                 # Sample images and plot
-                plot_model_sample(
-                    eu_sample,
-                    ode_sample,
-                    dataset,
-                    config,
-                    filename=os.path.join(img_dir, f"samples_{step:06d}"),
-                )
+                if config.eu_sample or config.ode_sample:
+                    plot_model_sample(
+                        eu_sample,
+                        ode_sample,
+                        dataset,
+                        config,
+                        filename=os.path.join(img_dir, f"samples_{step:06d}"),
+                    )
 
                 # Save model
                 save_model(
@@ -280,6 +282,6 @@ def train(
                 )
 
                 # Plot losses etc
-                plot_metrics(train_losses, valid_losses, dets, step, exp_dir)
+                plot_metrics(train_losses, valid_losses, step, exp_dir)
 
     return model

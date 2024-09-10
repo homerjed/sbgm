@@ -82,7 +82,7 @@ class VESDE(SDE):
         return jr.normal(key, shape) * self.sigma_fn(self.t1) 
 
     def prior_log_prob(self, z):
-        return jax.vmap(_get_log_prob_fn(scale=self.sigma_fn(self.t1)))(z)
+        return _get_log_prob_fn(scale=self.sigma_fn(self.t1))(z)
 
     def discretize(self, x, t):
         """ SMLD(NCSN) discretization. """

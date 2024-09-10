@@ -156,16 +156,10 @@ def samples_onto_ax(_X, fig, ax, vs, cmap):
         pass
 
 
-def plot_metrics(train_losses, valid_losses, dets, step, exp_dir):
+def plot_metrics(train_losses, valid_losses, step, exp_dir):
     if step != 0:
         fig, ax = plt.subplots(1, 1, figsize=(8., 4.))
         ax.loglog(train_losses)
         ax.loglog(valid_losses)
         plt.savefig(os.path.join(exp_dir, "loss.png"))
-        plt.close()
-    
-    if dets is not None:
-        plt.figure()
-        plt.semilogy(dets)
-        plt.savefig(os.path.join(exp_dir, "dets.png"))
         plt.close()
