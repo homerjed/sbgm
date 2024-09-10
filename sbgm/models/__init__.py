@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, Optional
 import equinox as eqx
 from jaxtyping import Key
 import numpy as np
@@ -12,10 +12,10 @@ from ._unet import UNet
 def get_model(
     model_key: Key, 
     model_type: str, 
+    config: ml_collections.ConfigDict, 
     data_shape: Sequence[int], 
-    context_shape: Sequence[int], 
-    parameter_dim: int,
-    config: ml_collections.ConfigDict
+    context_shape: Optional[Sequence[int]] = None, 
+    parameter_dim: Optional[int] = None
 ) -> eqx.Module:
     # Grab channel assuming 'q' is a map like x
     if context_shape is not None:

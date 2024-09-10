@@ -36,8 +36,8 @@ def moons_config():
 
     # Optimisation hyperparameters
     config.start_step      = 0
-    config.n_steps         = 50_000
-    config.batch_size      = 512 
+    config.n_steps         = 100_000
+    config.batch_size      = 128 
     config.print_every     = 5_000
     config.lr              = 1e-4
     config.opt             = "adabelief" 
