@@ -16,6 +16,5 @@ def get_sde(config: ConfigDict) -> _sde.SDE:
         beta_integral_fn=config.beta_integral,
         dt=config.dt,
         t0=config.t0, 
-        t1=config.t1,
-        N=config.N
+        t1=config.t1
     )

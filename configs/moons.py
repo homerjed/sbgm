@@ -25,7 +25,6 @@ def moons_config():
     sde.t1                 = 4.
     sde.dt                 = 0.1
     sde.beta_integral      = lambda t: t 
-    sde.N                  = 1000
 
     # Sampling
     config.use_ema         = True

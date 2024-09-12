@@ -29,7 +29,6 @@ def grfs_config():
     sde.t1                 = 8.
     sde.t0                 = 1e-5 
     sde.dt                 = 0.1
-    sde.N                  = 1000
     sde.beta_integral      = lambda t: t 
 
     # Sampling
