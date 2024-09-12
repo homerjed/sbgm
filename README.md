@@ -79,7 +79,9 @@ to run
 python main.py
 ```
 
-or something like
+See [examples](https://github.com/homerjed/sbgm/tree/main/examples).
+
+To run `cifar10`, try something like
 
 ```python
 import sbgm
