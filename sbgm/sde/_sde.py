@@ -12,9 +12,8 @@ class SDE(eqx.Module):
     dt: float
     t0: float
     t1: float
-    N: int
 
-    def __init__(self, dt: float = 0.01, t0: float = 0., t1: float = 1., N: int = 1000):
+    def __init__(self, dt: float = 0.01, t0: float = 0., t1: float = 1.):
         """
             Construct an SDE.
         """
@@ -22,7 +21,6 @@ class SDE(eqx.Module):
         self.t0 = t0
         self.t1 = t1
         self.dt = dt
-        self.N = N
 
     def sde(self, x: Array, t: Union[float, Array]) -> Tuple[Array, Array]:
         pass
@@ -52,25 +50,6 @@ class SDE(eqx.Module):
         """
         pass
 
-    def discretize(self, x: Array, t: Union[float, Array]) -> Tuple[Array, Array]:
-        """
-            Discretize the SDE in the form: x_{i+1} = x_i + f_i(x_i) + G_i z_i.
-
-            Useful for reverse diffusion sampling and probabiliy flow sampling.
-            Defaults to Euler-Maruyama discretization.
-
-            Args:
-            x: a jax array
-            t: a jax float representing the time step (from 0 to `self.T`)
-
-            Returns:
-            f, G
-        """
-        drift, diffusion = self.sde(x, t)
-        f = drift * self.dt
-        G = diffusion * jnp.sqrt(jnp.atleast_1d(self.dt))
-        return f, G
-
     def reverse(self, score_fn: eqx.Module, probability_flow: bool = False) -> Self:
         """
             Create the reverse-time SDE/ODE.
@@ -80,7 +59,6 @@ class SDE(eqx.Module):
             probability_flow: If `True`, create the reverse-time ODE used for probability flow sampling.
         """
         sde_fn = self.sde
-        discretize_fn = self.discretize
 
         if hasattr(self, "beta_integral_fn"):
             _sde_fn = self.beta_integral_fn 
@@ -90,18 +68,14 @@ class SDE(eqx.Module):
         _dt = self.dt
         _t0 = self.t0
         _t1 = self.t1
-        _N = self.N
 
         # Build the class for reverse-time SDE.
         class RSDE(self.__class__, SDE):
             probability_flow: bool
 
             def __init__(self):
-                self.N = _N
                 self.probability_flow = probability_flow
-                super().__init__(
-                    _sde_fn, dt=_dt, t0=_t0, t1=_t1, N=_N 
-                )
+                super().__init__(_sde_fn, dt=_dt, t0=_t0, t1=_t1)
 
             def sde(
                 self, 
@@ -127,19 +101,6 @@ class SDE(eqx.Module):
                 # Set the diffusion function to zero for ODEs (dw=0)
                 diffusion = 0. if self.probability_flow else diffusion
                 return drift, diffusion
-
-            def discretize(
-                self, 
-                x: Array, 
-                t: Union[float, Array],
-                q: Optional[Array] = None,
-                a: Optional[Array] = None
-            ) -> Tuple[Array, Array]:
-                """ Create discretized iteration rules for the reverse diffusion sampler. """
-                f, G = discretize_fn(x, t)
-                rev_f = f - G ** 2. * score_fn(t, x, q, a) * (0.5 if self.probability_flow else 1.)
-                rev_G = jnp.zeros_like(G) if self.probability_flow else G
-                return rev_f, rev_G
 
         return RSDE()
 

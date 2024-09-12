@@ -10,7 +10,7 @@ from .sde._sde import SDE
 
 
 def get_solver() -> dfx.AbstractSolver:
-    return dfx.Tsit5(scan_kind="bounded")
+    return dfx.Tsit5()
 
 
 def log_prob_approx(
@@ -61,22 +61,7 @@ def log_prob_exact(
     return f, log_prob
 
 
-@eqx.filter_jit
-def log_likelihood(
-    key: Key, 
-    model: eqx.Module, 
-    sde: SDE,
-    data_shape: Tuple[int], 
-    y: Array, 
-    q: Array, 
-    a: Array, 
-    exact_logp: bool,
-    n_eps: Optional[int] = 10
-) -> Tuple[Array, Array]:
-    """ Compute log-likelihood by solving ODE """
-
-    model = eqx.nn.inference_mode(model, True)
-
+def get_ode(model: eqx.Module, sde: SDE) -> Callable:
     reverse_sde = sde.reverse(model, probability_flow=True)
 
     def ode(
@@ -89,12 +74,34 @@ def log_likelihood(
         drift, _ = reverse_sde.sde(y, t, q, a)
         return drift.flatten()
 
+    return ode
+
+
+@eqx.filter_jit
+def log_likelihood(
+    key: Key, 
+    model: eqx.Module, 
+    sde: SDE,
+    data_shape: Tuple[int], 
+    x: Array, 
+    q: Optional[Array] = None, 
+    a: Optional[Array] = None, 
+    exact_logp: bool = False,
+    n_eps: Optional[int] = 10,
+    solver: Optional[dfx.AbstractSolver] = None
+) -> Tuple[Array, Array]:
+    """ Compute log-likelihood by solving ODE """
+
+    model = eqx.nn.inference_mode(model, True)
+
+    ode = get_ode(model, sde)
+
     # TODO: multiple eps realisations for averaging
     if not exact_logp:
         if n_eps is not None:
-            eps_shape = (n_eps,) + y.shape 
+            eps_shape = (n_eps,) + x.shape 
         else:
-            eps_shape = y.shape
+            eps_shape = x.shape
         eps = jr.normal(key, eps_shape)
     else:
         eps = None
@@ -104,18 +111,18 @@ def log_likelihood(
         dfx.ODETerm(
             log_prob_exact if exact_logp else log_prob_approx
         ),
-        get_solver(), 
+        solver if solver is not None else get_solver(), 
         t0=sde.t0,
         t1=sde.t1, 
         dt0=sde.dt, 
-        y0=(y.flatten(), 0.), # Data and initial change in log_prob
+        y0=(x.flatten(), 0.), # Data and initial change in log_prob
         args=(eps, q, a, ode, data_shape),
-        adjoint=dfx.DirectAdjoint()
+        # adjoint=dfx.DirectAdjoint()
     ) 
     (z,), (delta_log_likelihood,) = sol.ys
     p_z = sde.prior_log_prob(z).sum()
-    log_p_y = p_z + delta_log_likelihood 
-    return z, log_p_y
+    log_p_x = p_z + delta_log_likelihood 
+    return z, log_p_x
 
 
 def get_log_likelihood_fn(
@@ -123,11 +130,12 @@ def get_log_likelihood_fn(
     sde: SDE, 
     data_shape: Sequence[int], 
     exact_logp: bool = False,
-    n_eps: Optional[int] = None
+    n_eps: Optional[int] = None,
+    solver: Optional[dfx.AbstractSolver] = None
 ) -> Callable:
-    def _log_likelihood_fn(y, q, a, key):
+    def _log_likelihood_fn(x, q, a, key):
         _, log_probs = log_likelihood(
-            key, model, sde, data_shape, y, q, a, exact_logp, n_eps
+            key, model, sde, data_shape, x, q, a, exact_logp, n_eps, solver
         )
         return log_probs
     return _log_likelihood_fn
