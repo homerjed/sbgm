@@ -48,7 +48,9 @@ def log_prob_exact(
     y: Array, 
     args: Tuple[None, Array, Array, eqx.Module, Sequence[int]]
 ) -> Tuple[Array, Array]:
-    """ Compute trace directly. """
+    """ 
+        Compute trace directly. 
+    """
     y, _ = y
     _, q, a, func, data_shape = args
 
@@ -62,6 +64,7 @@ def log_prob_exact(
 
 
 def get_ode(model: eqx.Module, sde: SDE) -> Callable:
+
     reverse_sde = sde.reverse(model, probability_flow=True)
 
     def ode(
@@ -70,7 +73,6 @@ def get_ode(model: eqx.Module, sde: SDE) -> Callable:
         q: Optional[Array] = None, 
         a: Optional[Array] = None
     ) -> Array:
-        t = jnp.atleast_1d(t)
         drift, _ = reverse_sde.sde(y, t, q, a)
         return drift.flatten()
 
@@ -153,20 +155,26 @@ def log_likelihood(
 
     # TODO: multiple eps realisations for averaging
     if not exact_logp:
+        assert key is not None, (
+            "Must provide key for approximate likelihood calculations."
+        )
         if n_eps is not None:
             eps_shape = (n_eps,) + x.shape 
         else:
             eps_shape = x.shape
+
         eps = jr.normal(key, eps_shape)
+        _ode_term = log_prob_approx
     else:
         eps = None
+        _ode_term = log_prob_exact
+
+    _solver = solver if solver is not None else get_solver()
 
     # Likelihood from solving initial value problem
     sol = dfx.diffeqsolve(
-        dfx.ODETerm(
-            log_prob_exact if exact_logp else log_prob_approx
-        ),
-        solver if solver is not None else get_solver(), 
+        dfx.ODETerm(_ode_term),
+        _solver, 
         t0=sde.t0,
         t1=sde.t1, 
         dt0=sde.dt, 
@@ -247,7 +255,60 @@ def get_log_likelihood_fn(
             '''
         ```
     """
-    def _log_likelihood_fn(x: Array, q: Optional[Array], a: Optional[Array], key: Key) -> Array:
+    def _log_likelihood_fn(
+        x: Array, 
+        q: Optional[Array] = None, 
+        a: Optional[Array] = None, 
+        key: Optional[Key] = None
+    ) -> Array:
+        """
+            Computes the log-likelihood of input data `x` using a score-based model and stochastic 
+            differential equation (SDE), optionally conditioned on `q` and `a`.
+
+            This function is parameterized by a model and SDE and returns the log-likelihood of data 
+            by solving an ODE. It supports both exact log-likelihood computation and approximation 
+            via multiple noise realizations.
+
+            Parameters:
+            -----------
+            `x` : `Array`
+                The input data for which the log-likelihood is to be computed. This typically represents 
+                a batch of data points or images.
+            
+            `q` : `Optional[Array]`, default: `None`
+                Optional conditioning variable `q`, used to condition the log-likelihood calculation if applicable.
+            
+            `a` : `Optional[Array]`, default: `None`
+                Optional conditioning variable `a`, used to condition the log-likelihood calculation if applicable.
+            
+            `key` : `Optional[Key]`, default: `None`
+                A JAX random key used for generating noise realizations in the case of approximate log-likelihood 
+                computations. If the exact log-likelihood is being computed (`exact_logp=True` in `get_log_likelihood_fn`), 
+                this argument may be ignored.
+
+            Returns:
+            --------
+            `log_probs` : `Array`
+                The computed log-likelihood of the input data `x`. This will be a scalar value for each data point, 
+                estimating the probability density of the data under the given score-based model.
+
+            Notes:
+            ------
+            - If `exact_logp` was set to `False` when creating this function, it uses Hutchinson trace approximation 
+              with `n_eps` noise realizations to approximate the log-likelihood.
+            - The function relies on solving an initial value problem for the reverse-time ODE associated with the SDE.
+            - The log-likelihood can be conditioned on additional variables `q` and `a`, which are passed into the SDE.
+            
+            Example:
+            --------
+            ```python
+            # Get a log-likelihood function for a trained model and SDE
+            log_likelihood_fn = get_log_likelihood_fn(model, sde, data_shape=(3, 32, 32))
+
+            # Use the function to compute log-likelihoods for a batch of data `x`
+            log_probs = log_likelihood_fn(x=batch_data, q=None, a=None, key=jax.random.PRNGKey(42))
+            ```
+        """
         _, log_probs = log_likelihood(
             key, model, sde, data_shape, x, q, a, exact_logp, n_eps, solver
         )

@@ -15,7 +15,9 @@ def get_dataset(
     key: Key, 
     config: ConfigDict
 ) -> ScalerDataset:
+
     dataset_name = config.dataset_name.lower()
+
     if dataset_name == "flowers":
         dataset = flowers(key, n_pix=config.n_pix)
     if dataset_name == "cifar10":
@@ -28,4 +30,5 @@ def get_dataset(
         dataset = grfs(key, n_pix=config.n_pix)
     if dataset_name == "quijote":
         dataset = quijote(key, n_pix=config.n_pix, split=0.9)
+
     return dataset

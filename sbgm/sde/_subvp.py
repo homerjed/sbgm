@@ -39,7 +39,7 @@ class SubVPSDE(SDE):
 
             Args:
         """
-        super().__init__(dt=dt, t0=t0, t1=t1, N=N)
+        super().__init__(dt=dt, t0=t0, t1=t1)
         self.beta_integral_fn = beta_integral_fn
         self.beta_fn = get_beta_fn(beta_integral_fn)
         self.weight_fn = weight_fn

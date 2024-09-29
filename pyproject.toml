@@ -26,8 +26,8 @@ classifiers = [
 urls = {repository = "https://github.com/homerjed/sbgm"}
 
 dependencies = [
-    'jax>=0.4.28',
-    'equinox>=0.11.5',
+    'jax>=0.4.33',
+    'equinox>=0.11.7',
     'diffrax>=0.6.0',
     'optax>=0.2.3',
     'beartype',

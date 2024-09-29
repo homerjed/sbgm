@@ -34,10 +34,10 @@ def main():
     model = sbgm.models.get_model(
         model_key, 
         config.model.model_type, 
+        config,
         dataset.data_shape, 
         dataset.context_shape, 
-        dataset.parameter_dim,
-        config
+        dataset.parameter_dim
     )
 
     # Stochastic differential equation (SDE)

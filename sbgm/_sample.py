@@ -70,7 +70,7 @@ def single_ode_sample_fn(
         ```
     """
 
-    model = eqx.tree_inference(model, True)
+    model = eqx.nn.inference_mode(model, True)
 
     reverse_sde = sde.reverse(model, probability_flow=True)
 
@@ -154,7 +154,7 @@ def single_eu_sample_fn(
         ```
     """
     
-    model = eqx.tree_inference(model, True)
+    model = eqx.nn.inference_mode(model, True)
 
     time_steps = jnp.linspace(sde.t1, sde.t0, T_sample) # Reversed time
     step_size = (sde.t1 - sde.t0) / T_sample 
@@ -244,7 +244,11 @@ def get_eu_sample_fn(
         - The number of discretization steps `T_sample` controls the fidelity of the sample, with higher values providing 
           more accurate results.
     """
-    def _eu_sample_fn(key, q, a): 
+    def _eu_sample_fn(
+        key: Key, 
+        q: Optional[Array] = None, 
+        a: Optional[Array] = None
+    ) -> Array: 
         return single_eu_sample_fn(
             model, sde, data_shape, key, q, a, T_sample
         ) 
@@ -254,7 +258,8 @@ def get_eu_sample_fn(
 def get_ode_sample_fn(
     model: eqx.Module, 
     sde: SDE, 
-    data_shape: Sequence[int]
+    data_shape: Sequence[int],
+    solver: Optional[dfx.AbstractSolver] = None
 ) -> Callable:
     """
         Returns a callable function that implements sampling from the reverse-time stochastic differential equation 
@@ -287,7 +292,7 @@ def get_ode_sample_fn(
         --------
         ```python
         ode_sampler = get_ode_sample_fn(model, sde, data_shape=(3, 32, 32))
-        sampled_data = ode_sampler(jr.PRNGKey(0), q=None, a=None)
+        sampled_data = ode_sampler(jr.PRNGKey(0))
         ```
 
         Notes:
@@ -297,8 +302,12 @@ def get_ode_sample_fn(
         - The sample function takes in a `key` for random sampling, and optionally `q` and `a` as conditioning variables, 
           which can be used to condition the SDE dynamics.
     """
-    def _ode_sample_fn(key, q, a):
+    def _ode_sample_fn(
+        key: Key, 
+        q: Optional[Array] = None, 
+        a: Optional[Array] = None
+    ) -> Array:
         return single_ode_sample_fn(
-            model, sde, data_shape, key, q, a
+            model, sde, data_shape, key, q, a, solver
         )
     return _ode_sample_fn
