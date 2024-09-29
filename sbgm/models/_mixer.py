@@ -147,9 +147,11 @@ class Mixer2d(eqx.Module):
         num_patches = (height // patch_size) * (width // patch_size)
         inkey, outkey, *bkeys = jr.split(key, 2 + num_blocks)
 
+        _input_size = input_size + q_dim if q_dim is not None else input_size
+        _context_dim = embedding_dim + a_dim if a_dim is not None else embedding_dim
+
         self.conv_in = eqx.nn.Conv2d(
-            # input_size + 1, # Time is tiled along with time as channels
-            input_size, # Time is tiled along with time as channels
+            _input_size, 
             hidden_size, 
             patch_size, 
             stride=patch_size, 
@@ -168,7 +170,7 @@ class Mixer2d(eqx.Module):
                 hidden_size, 
                 mix_patch_size, 
                 mix_hidden_size, 
-                context_dim=a_dim + embedding_dim,
+                context_dim=_context_dim,
                 key=bkey
             ) 
             for bkey in bkeys

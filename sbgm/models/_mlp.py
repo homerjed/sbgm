@@ -78,8 +78,8 @@ class ResidualNetwork(eqx.Module):
         self, 
         t: Union[float, Array], 
         x: Array, 
-        q: Array, 
-        a: Array, 
+        q: Optional[Array], 
+        a: Optional[Array], 
         *, 
         key: Key = None
     ) -> Array:

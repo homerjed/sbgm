@@ -5,7 +5,8 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 import equinox as eqx
-from jaxtyping import Key, Array
+from jaxtyping import Key, Array, jaxtyped
+from beartype import beartype as typechecker
 from einops import rearrange
 
 
@@ -19,7 +20,7 @@ class SinusoidalPosEmb(eqx.Module):
 
     def __call__(self, x: Array) -> Array:
         emb = x * self.emb
-        emb = jnp.concatenate((jnp.sin(emb), jnp.cos(emb)), axis=-1)
+        emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=-1)
         return emb
 
 
@@ -534,95 +535,3 @@ class UNet(eqx.Module):
         for layer in self.final_conv_layers:
             h = layer(h)
         return self.final_activation(h) if self.final_activation is not None else h
-
-
-if __name__ == "__main__":
-
-    key = jr.key(0)
-
-    x = jnp.ones((1, 32, 32))
-    t = jnp.ones((1,))
-
-    q = 1
-    a = 2
-
-    unet = UNet(
-        x.shape,
-        is_biggan=False,
-        dim_mults=[1, 1, 1],
-        hidden_size=32,
-        heads=2,
-        dim_head=32,
-        dropout_rate=0.1,
-        num_res_blocks=2,
-        attn_resolutions=[8, 16, 32],
-        q_dim=q,
-        a_dim=a,
-        key=jr.key(0)
-    )
-
-    q = jnp.ones((1, 32, 32))
-    a = jnp.ones((2,))
-    print(unet(t, x, q=q, a=a, key=key).shape)
-
-    q = None
-    a = None
-
-    unet = UNet(
-        x.shape,
-        is_biggan=False,
-        dim_mults=[1, 1, 1],
-        hidden_size=32,
-        heads=2,
-        dim_head=32,
-        dropout_rate=0.1,
-        num_res_blocks=2,
-        attn_resolutions=[8, 16, 32],
-        q_dim=q,
-        a_dim=a,
-        key=jr.key(0)
-    )
-    
-    print(unet(t, x, key=key).shape)
-
-    q = 1
-    a = None
-
-    unet = UNet(
-        x.shape,
-        is_biggan=False,
-        dim_mults=[1, 1, 1],
-        hidden_size=32,
-        heads=2,
-        dim_head=32,
-        dropout_rate=0.1,
-        num_res_blocks=2,
-        attn_resolutions=[8, 16, 32],
-        q_dim=q,
-        a_dim=a,
-        key=jr.key(0)
-    )
-    
-    q = jnp.ones((1, 32, 32))
-    print(unet(t, x, q=q, key=key).shape)
-
-    q = None
-    a = 2 
-
-    unet = UNet(
-        x.shape,
-        is_biggan=False,
-        dim_mults=[1, 1, 1],
-        hidden_size=32,
-        heads=2,
-        dim_head=32,
-        dropout_rate=0.1,
-        num_res_blocks=2,
-        attn_resolutions=[8, 16, 32],
-        q_dim=q,
-        a_dim=a,
-        key=jr.key(0)
-    )
-    
-    a = jnp.ones((2,))
-    print(unet(t, x, a=a, key=key).shape)
