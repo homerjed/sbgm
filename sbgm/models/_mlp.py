@@ -34,45 +34,85 @@ class ResidualNetwork(eqx.Module):
     dropouts: Tuple[eqx.nn.Dropout]
     _out: Linear
     activation: Callable
+    q_dim: Optional[int] = None
     a_dim: Optional[int] = None
+    t1: float
 
     def __init__(
         self, 
         in_size: int, 
         width_size: int, 
-        depth: Optional[int] = None, 
+        depth: Optional[int], 
+        q_dim: Optional[int] = None,
         a_dim: Optional[int] = None, 
         activation: Callable = jax.nn.tanh,
         dropout_p: float = 0.,
+        t1: float = 1.,
         *, 
         key: Key
     ):
-        """ Time-embedding may be necessary """
+        """
+            Parameters:
+            -----------
+            `in_size` : `int`
+                The size of the input features to the network.
+            
+            `width_size` : `int`
+                The width (number of units) of each hidden layer in the network.
+            
+            `depth` : `Optional[int]`, default: `None`
+                The number of residual layers in the network. 
+            
+            `q_dim` : `Optional[int]`, default: `None`
+                The number of elements in the optional conditioning input.
+            
+            `a_dim` : `Optional[int]`, default: `None`
+                The number of parameters in the optional conditioning.
+            
+            `activation` : `Callable`, default: `jax.nn.tanh`
+                The activation function applied after each layer. Defaults to the hyperbolic tangent (`tanh`).
+            
+            `dropout_p` : `float`, default: `0.`
+                The probability of dropping out units in the dropout layers. Defaults to `0` (no dropout).
+
+            `t1` : float, default: `1.0`
+                Default maximum time of diffusion process. Scales input times.
+            
+            `key` : `Key`
+                JAX random key used for initialization.
+        """
+
         in_key, *net_keys, out_key = jr.split(key, 2 + depth)
-        self._in = Linear(
-            in_size + a_dim + 1 if a_dim is not None else in_size + 1, 
-            width_size, 
-            key=in_key
-        )
+
+        _in_size = in_size + 1 # TODO: time embedding
+        if q_dim is not None:
+            _in_size += q_dim
+        if a_dim is not None:
+            _in_size += a_dim
+
+        _width_size = width_size + 1 # TODO: time embedding
+        if q_dim is not None:
+            _width_size += q_dim
+        if a_dim is not None:
+            _width_size += a_dim
+
+        self._in = Linear(_in_size,width_size, key=in_key)
         layers = [
-            Linear(
-                width_size + a_dim + 1 if a_dim is not None else width_size + 1, 
-                width_size, 
-                key=_key
-            )
+            Linear(_width_size, width_size, key=_key)
             for _key in net_keys 
         ]
-        self._out = Linear(
-            width_size, in_size, key=out_key
-        )
+        self._out = Linear(width_size, in_size, key=out_key)
+        self.layers = tuple(layers)
 
         dropouts = [
             eqx.nn.Dropout(p=dropout_p) for _ in layers
         ]
-        self.layers = tuple(layers)
         self.dropouts = tuple(dropouts)
+
         self.activation = activation
+        self.q_dim = q_dim
         self.a_dim = a_dim
+        self.t1 = t1
     
     def __call__(
         self, 
@@ -83,20 +123,23 @@ class ResidualNetwork(eqx.Module):
         *, 
         key: Key = None
     ) -> Array:
-        t = jnp.atleast_1d(t)
+        t = jnp.atleast_1d(t / self.t1)
+
+        _qa = []
+        if q is not None and self.q_dim is not None:
+            _qa.append(q)
         if a is not None and self.a_dim is not None:
-            xat = jnp.concatenate([x, a, t]) 
-        else:
-            xat = jnp.concatenate([x, t])
-        h0 = self._in(xat)
+            _qa.append(a)
+
+        xqat = jnp.concatenate([x, t] + _qa)
+        
+        h0 = self._in(xqat)
         h = h0
         for l, d in zip(self.layers, self.dropouts):
             # Condition on time at each layer
-            if a is not None and self.a_dim is not None:
-                hat = jnp.concatenate([h, a, t]) 
-            else:
-                hat = jnp.concatenate([h, t])
-            h = l(hat)
+            hqat = jnp.concatenate([h, t] + _qa)
+
+            h = l(hqat)
             h = d(h, key=key)
             h = self.activation(h)
         o = self._out(h0 + h)
