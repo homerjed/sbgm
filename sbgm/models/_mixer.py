@@ -48,6 +48,7 @@ class MixerBlock(eqx.Module):
     hidden_size: int
     norm1: eqx.nn.LayerNorm
     norm2: eqx.nn.LayerNorm
+    a_dim: int = None
 
     def __init__(
         self, 
@@ -55,7 +56,7 @@ class MixerBlock(eqx.Module):
         hidden_size: int, 
         mix_patch_size: int, 
         mix_hidden_size: int, 
-        context_dim: int,
+        context_dim: Optional[int] = None,
         *, 
         key: Key
     ):
@@ -74,47 +75,47 @@ class MixerBlock(eqx.Module):
             depth=1, 
             key=ckey
         )
-        # Possible adaNorm instead of layernorm?
-        # self.norm1 = eqx.nn.LayerNorm((hidden_size, num_patches))
-        # self.norm2 = eqx.nn.LayerNorm((num_patches, hidden_size))
-        key1, key2 = jr.split(key)
-        self.norm1 = AdaLayerNorm(
-            (hidden_size, num_patches), context_dim, key=key1
-        )
-        self.norm2 = AdaLayerNorm(
-            (num_patches, hidden_size), context_dim, key=key2
-        )
+        if context_dim is not None:
+            key1, key2 = jr.split(key)
+            self.norm1 = AdaLayerNorm(
+                (hidden_size, num_patches), context_dim, key=key1
+            )
+            self.norm2 = AdaLayerNorm(
+                (num_patches, hidden_size), context_dim, key=key2
+            )
+        else:
+            self.norm1 = eqx.nn.LayerNorm((hidden_size, num_patches))
+            self.norm2 = eqx.nn.LayerNorm((num_patches, hidden_size))
         self.hidden_size = hidden_size
         self.num_patches = num_patches 
+        self.a_dim = context_dim
 
-    def __call__(self, y: Array, q: Array) -> Array:
-        y = y + jax.vmap(self.patch_mixer)(self.norm1(y, q))
+    def __call__(self, y: Array, a: Array = None) -> Array:
+        if a is not None and self.a_dim is not None:
+            y = y + jax.vmap(self.patch_mixer)(self.norm1(y, a))
+        else:
+            y = y + jax.vmap(self.norm1)(y)
         y = einops.rearrange(y, "c p -> p c")
-        y = y + jax.vmap(self.hidden_mixer)(self.norm2(y, q))
+        if a is not None and self.a_dim is not None:
+            y = y + jax.vmap(self.hidden_mixer)(self.norm2(y, a))
+        else:
+            y = y + jax.vmap(self.norm2)(y)
         y = einops.rearrange(y, "p c -> c p")
         return y
 
 
-def get_timestep_embedding(
-    timesteps: Array, embedding_dim: int, dtype=jnp.float32
-) -> Array:
+def get_timestep_embedding(timesteps, embedding_dim):
     """Build sinusoidal embeddings (from Fairseq)."""
-
     # Convert scalar timesteps to an array
+    assert embedding_dim % 2 == 0
     if jnp.isscalar(timesteps):
-        timesteps = jnp.array([timesteps], dtype=dtype)
-
-    assert len(timesteps.shape) == 1
-    timesteps *= 1000
-
+        timesteps = jnp.array(timesteps)
+    timesteps *= 1000.
     half_dim = embedding_dim // 2
-    emb = jnp.log(10_000) / (half_dim - 1)
-    emb = jnp.exp(jnp.arange(half_dim, dtype=dtype) * -emb)
-    emb = timesteps.astype(dtype)[:, None] * emb[None, :]
-    emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=1)
-    if embedding_dim % 2 == 1:  # Zero pad
-        emb = jax.lax.pad(emb, dtype(0), ((0, 0, 0), (0, 1, 0)))
-    assert emb.shape == (timesteps.shape[0], embedding_dim)
+    emb = jnp.log(10_000.) / (half_dim - 1.)
+    emb = jnp.exp(jnp.arange(half_dim) * -emb)
+    emb = timesteps * emb
+    emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=0)
     return emb
 
 
@@ -233,7 +234,7 @@ class Mixer2d(eqx.Module):
     ) -> Array:
         _, height, width = y.shape
         t = jnp.atleast_1d(t / self.t1)
-        t = get_timestep_embedding(t, embedding_dim=self.embedding_dim)[0]
+        t = get_timestep_embedding(t, embedding_dim=self.embedding_dim)
         if q is not None:
             yq = jnp.concatenate([y, q])
             _input = yq
