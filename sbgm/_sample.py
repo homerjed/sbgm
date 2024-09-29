@@ -20,7 +20,55 @@ def single_ode_sample_fn(
     a: Optional[Array] = None,
     solver: Optional[dfx.AbstractSolver] = None
 ) -> Array:
-    """ Solve reverse ODE initial-value problem with prior sample """
+    """
+        Solves the reverse-time ordinary differential equation (ODE) to generate a sample from the prior distribution 
+        by solving the initial value problem (IVP) with the provided model and stochastic differential equation (SDE).
+
+        Parameters:
+        -----------
+        `model` : `eqx.Module`
+            The trained model, typically a score-based generative model, used for reverse-time sampling.
+        
+        `sde` : `SDE`
+            The stochastic differential equation (SDE) defining both the forward and reverse diffusion dynamics.
+        
+        `data_shape` : `Sequence[int]`
+            Shape of the data to be sampled, used for constructing the prior sample.
+        
+        `key` : `Key`
+            A JAX random key used to generate the prior sample.
+        
+        `q` : `Optional[Array]`, default: `None`
+            Optional conditioning variable `q` for the ODE, if applicable.
+        
+        `a` : `Optional[Array]`, default: `None`
+            Optional conditioning variable `a` for the ODE, if applicable.
+        
+        `solver` : `Optional[dfx.AbstractSolver]`, default: `None`
+            The differential equation solver to be used for solving the reverse-time ODE. If `None`, a default solver is used.
+
+        Returns:
+        --------
+        `Array`
+            The generated sample at time `t0`, obtained by solving the reverse-time ODE from the prior sample at `t1`.
+
+        Notes:
+        ------
+        - The function uses the reverse SDE (with probability flow) to define the drift term for the ODE, 
+        which corresponds to the reverse diffusion process.
+        - The ODE is solved from `t1` (the endpoint of the forward process) to `t0` (the initial point).
+        - If `q` and `a` are provided, they condition the reverse-time dynamics during the sampling process.
+        - The reverse-time SDE is solved by `diffeqsolve` from the `diffrax` library, with `ODETerm` representing 
+        the reverse dynamics.
+
+        Example:
+        --------
+        ```python
+        sampled_data = single_ode_sample_fn(
+            model, sde, data_shape=(3, 32, 32), key=jr.PRNGKey(0)
+        )
+        ```
+    """
 
     model = eqx.tree_inference(model, True)
 
@@ -55,7 +103,56 @@ def single_eu_sample_fn(
     a: Optional[Array] = None,
     T_sample: int = 1_000
 ) -> Array:
-    """ Euler-Murayama sampler of reverse SDE """
+    """
+        Implements the Euler-Maruyama sampler for solving the reverse-time stochastic differential equation (SDE) 
+        to generate a sample from the prior distribution.
+
+        Parameters:
+        -----------
+        `model` : `eqx.Module`
+            The trained model, typically a score-based generative model, used for reverse-time sampling.
+        
+        `sde` : `SDE`
+            The stochastic differential equation (SDE) defining both the forward and reverse diffusion dynamics.
+        
+        `data_shape` : `Sequence[int]`
+            Shape of the data to be sampled, used for constructing the prior sample.
+        
+        `key` : `Key`
+            A JAX random key used to generate the prior sample and noise at each time step.
+        
+        `q` : `Optional[Array]`, default: `None`
+            Optional conditioning variable `q` for the SDE, if applicable.
+        
+        `a` : `Optional[Array]`, default: `None`
+            Optional conditioning variable `a` for the SDE, if applicable.
+        
+        `T_sample` : `int`, default: `1_000`
+            The number of time steps used for the Euler-Maruyama discretization. Higher values give more accurate 
+            approximations of the reverse SDE.
+
+        Returns:
+        --------
+        `Array`
+            The generated sample at time `t0`, obtained by solving the reverse-time SDE using Euler-Maruyama discretization.
+
+        Notes:
+        ------
+        - The function simulates the reverse diffusion process starting from a prior sample `xT` at time `t1`, 
+          and evolves it to `t0` using the Euler-Maruyama method.
+        - At each time step `i`, the function applies the Euler-Maruyama update rule: 
+          `x <- x + [f(x, t) - g^2(t) * score(x, t, q)] * dt + g(t) * sqrt(dt) * eps_t`, 
+          where `f(x, t)` is the drift term, `g(t)` is the diffusion coefficient, and `eps_t` is a random noise term.
+        - The reverse-time SDE is defined with `probability_flow=False`, meaning it includes both drift and diffusion components.
+
+        Example:
+        --------
+        ```python
+        sampled_data = single_eu_sample_fn(
+            model, sde, data_shape=(32, 32, 3), key=jr.PRNGKey(0)
+        )
+        ```
+    """
     
     model = eqx.tree_inference(model, True)
 
@@ -100,6 +197,53 @@ def get_eu_sample_fn(
     data_shape: Sequence[int], 
     T_sample: int = 1_000
 ) -> Callable:
+    """
+        Returns a callable function that implements Euler-Maruyama sampling of the reverse-time stochastic differential 
+        equation (SDE) for generating data samples.
+
+        Parameters:
+        -----------
+        `model` : `eqx.Module`
+            The trained score network model used for reverse-time sampling.
+        
+        `sde` : `SDE`
+            The stochastic differential equation (SDE) defining both the forward diffusion dynamics.
+        
+        `data_shape` : `Sequence[int]`
+            Shape of the data to be sampled, used for constructing the prior sample.
+        
+        `T_sample` : `int`, default: `1_000`
+            The number of time steps used for the Euler-Maruyama discretization. Higher values give more accurate 
+            approximations of the reverse SDE.
+
+        Returns:
+        --------
+        `Callable`
+            A function `_eu_sample_fn` which generates a data sample given a random key `key`, and optional 
+            conditioning variables `q` and `a`. It has the following signature:
+            
+            ```python
+            def _eu_sample_fn(key: Key, q: Optional[Array], a: Optional[Array]) -> Array
+            ```
+
+            This function uses `single_eu_sample_fn` to generate a sample at time `t0`.
+
+        Example:
+        --------
+        ```python
+        eu_sampler = get_eu_sample_fn(model, sde, data_shape=(3, 32, 32))
+        sampled_data = eu_sampler(jr.PRNGKey(0), q=None, a=None)
+        ```
+
+        Notes:
+        ------
+        - The returned function calls `single_eu_sample_fn` to simulate the reverse diffusion process starting from 
+          a prior sample `xT` at time `t1`, and evolves it to `t0` using the Euler-Maruyama method.
+        - The sample function takes in a `key` for random sampling, and optionally `q` and `a` as conditioning variables, 
+          which can be used to condition the SDE dynamics.
+        - The number of discretization steps `T_sample` controls the fidelity of the sample, with higher values providing 
+          more accurate results.
+    """
     def _eu_sample_fn(key, q, a): 
         return single_eu_sample_fn(
             model, sde, data_shape, key, q, a, T_sample
@@ -112,6 +256,47 @@ def get_ode_sample_fn(
     sde: SDE, 
     data_shape: Sequence[int]
 ) -> Callable:
+    """
+        Returns a callable function that implements sampling from the reverse-time stochastic differential equation 
+        (SDE) using the ODE solver approach.
+
+        Parameters:
+        -----------
+        `model` : `eqx.Module`
+            The trained score network model used for reverse-time sampling.
+
+        `sde` : `SDE`
+            The stochastic differential equation (SDE) defining both the forward diffusion dynamics.
+
+        `data_shape` : `Sequence[int]`
+            Shape of the data to be sampled, used for constructing the prior sample.
+
+        Returns:
+        --------
+        `Callable`
+            A function `_ode_sample_fn` which generates a data sample given a random key `key`, and optional 
+            conditioning variables `q` and `a`. It has the following signature:
+            
+            ```python
+            def _ode_sample_fn(key: Key, q: Optional[Array], a: Optional[Array]) -> Array
+            ```
+
+            This function uses `single_ode_sample_fn` to generate a sample at time `t0`.
+
+        Example:
+        --------
+        ```python
+        ode_sampler = get_ode_sample_fn(model, sde, data_shape=(3, 32, 32))
+        sampled_data = ode_sampler(jr.PRNGKey(0), q=None, a=None)
+        ```
+
+        Notes:
+        ------
+        - The returned function calls `single_ode_sample_fn` to simulate the reverse diffusion process starting from 
+          a prior sample at time `t1`, and evolves it to `t0` using the ODE method.
+        - The sample function takes in a `key` for random sampling, and optionally `q` and `a` as conditioning variables, 
+          which can be used to condition the SDE dynamics.
+    """
     def _ode_sample_fn(key, q, a):
         return single_ode_sample_fn(
             model, sde, data_shape, key, q, a

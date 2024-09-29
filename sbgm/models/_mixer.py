@@ -135,12 +135,55 @@ class Mixer2d(eqx.Module):
         mix_hidden_size: int,
         num_blocks: int,
         t1: float,
-        embedding_dim: int = 4,
+        embedding_dim: int = 8,
         q_dim: int = None,
         a_dim: int = None,
         *,
         key: Key
     ):
+        """
+            A 2D MLP Mixer model.
+            This model processes 2D images using a patch-based approach, where 
+            each patch is processed through a series of mixer blocks. It also 
+            supports optional conditioning through `q_dim` and `a_dim`.
+
+            Parameters:
+            -----------
+            `img_size` : `Sequence[int]`
+                Shape of the input image as a sequence (typically height and width).
+            
+            `patch_size` : `int`
+                Size of the patches into which the input image is divided.
+            
+            `hidden_size` : `int`
+                Size of the hidden layers within each Mixer block.
+            
+            `mix_patch_size` : `int`
+                Size of the patches used for the patch mixing within each Mixer block.
+            
+            `mix_hidden_size` : `int`
+                Size of the hidden layers used for mixing channels across patches.
+            
+            `num_blocks` : `int`
+                Number of Mixer blocks in the model.
+            
+            `t1` : `float`
+                Maximum time of diffusion process. Scales input times.
+            
+            `embedding_dim` : `int`, default: `4`
+                Dimensionality of the time embedding. Defaults to `8`.
+            
+            `q_dim` : `Optional[int]`, default: `None`
+                The number of channels in the conditioning map. Can be `None`.
+                Must be same dimension as input `x` in `__call__`
+            
+            `a_dim` : `Optional[int]`, default: `None`
+                The number of parameters in the conditioning. Can be `None`.
+            
+            `key` : `Key`
+                JAX random key used for initialization.
+        """
+
         input_size, height, width = img_size
         assert (height % patch_size) == 0
         assert (width % patch_size) == 0

@@ -289,6 +289,55 @@ class UNet(eqx.Module):
         *,
         key: jr.PRNGKey,
     ):
+        """
+            UNet score network. 
+            
+            This model supports optional conditioning through `q_dim` and `a_dim`, 
+            and can be adjusted to different input shapes and configurations.
+
+            Parameters:
+            -----------
+            `data_shape` : `tuple[int, int, int]`
+                Shape of the input data as `(height, width, channels)`.
+            
+            `is_biggan` : `bool`
+                Whether the model is based on the BigGAN architecture.
+            
+            `dim_mults` : `list[int]`
+                List of integers representing the dimension multipliers for each level in the UNet.
+            
+            `hidden_size` : `int`
+                Size of the hidden layers in the MLPs and other parts of the network.
+            
+            `heads` : `int`
+                Number of heads used in the attention mechanism (if any).
+            
+            `dim_head` : `int`
+                Dimension of each head in the attention mechanism.
+            
+            `dropout_rate` : `float`
+                The dropout rate used in various parts of the network.
+            
+            `num_res_blocks` : `int`
+                Number of residual blocks used at each stage in the UNet.
+            
+            `attn_resolutions` : `list[int]`
+                List of resolutions at which attention is applied in the network.
+            
+            `final_activation` : `Optional[Callable]`, default: `jax.nn.tanh`
+                The final activation function to be applied to the output.
+            
+            `q_dim` : `Optional[int]`, default: `None`
+                The number of channels in the conditioning map. 
+                Must be same shape as `x` in `__call__`.
+            
+            `a_dim` : `Optional[int]`, default: `None`
+                The number of parameters in the conditioning.
+            
+            `key` : `jr.PRNGKey`
+                JAX random key used for initialization.
+        """
+
         keys = jr.split(key, 7)
 
         data_channels, in_height, in_width = data_shape

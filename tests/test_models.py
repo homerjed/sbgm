@@ -11,6 +11,7 @@ def test_resnet():
 
     x = jnp.ones((5,))
     t = jnp.ones((1,))
+
     a = jnp.ones((3,))
     q = None
 
@@ -18,6 +19,39 @@ def test_resnet():
         x.size, 
         width_size=32, 
         depth=2,
+        q_dim=None,
+        a_dim=a.size,
+        dropout_p=0.1,
+        activation=jax.nn.tanh,
+        key=key
+    )
+
+    out = net(t, x, q=q, a=a, key=key)
+    assert out.shape == x.shape
+
+    a = None
+    q = jnp.ones((5,)) 
+
+    net = ResidualNetwork(
+        x.size, 
+        width_size=32, 
+        depth=2,
+        dropout_p=0.1,
+        activation=jax.nn.tanh,
+        key=key
+    )
+
+    out = net(t, x, q=q, a=a, key=key)
+    assert out.shape == x.shape
+
+    a = jnp.ones((3,))
+    q = jnp.ones((5,)) 
+
+    net = ResidualNetwork(
+        x.size, 
+        width_size=32, 
+        depth=2,
+        q_dim=q.size,
         a_dim=a.size,
         dropout_p=0.1,
         activation=jax.nn.tanh,

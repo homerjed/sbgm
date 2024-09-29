@@ -149,6 +149,57 @@ def train(
     save_dir: Optional[str] = None,
     plot_train_data: bool = False
 ):
+    """
+        Trains a diffusion model built from a score network (`model`) using a stochastic 
+        differential equation (SDE, `sde`) with a given dataset, with support for various 
+        configurations and saving options.
+
+        Parameters:
+        -----------
+        `key` : `Key`
+            A JAX random key used for sampling and model initialization.
+        
+        `model` : `eqx.Module`
+            The model to be trained, which is typically a `UNet`, `ResidualNetwork` or custom module.
+        
+        `sde` : `SDE`
+            The SDE that governs the diffusion process. Defines forward and reverse dynamics.
+        
+        `dataset` : `dataclass`
+            The dataset to train on which contains the data loaders.
+        
+        `config` : `ConfigDict`
+            Experiment configuration settings, such as model parameters, training steps, batch size, and SDE specifics.
+        
+        `reload_opt_state` : `bool`, default: `False`
+            Whether to reload the optimizer state and model from previous checkpoint files. Defaults to starting from scratch.
+        
+        `sharding` : `Optional[jax.sharding.Sharding]`, default: `None`
+            Optional device sharding for distributed training across multiple devices.
+        
+        `save_dir` : `Optional[str]`, default: `None`
+            Directory path to save the model, optimizer state, and training figures. If `None`, a default directory is created.
+        
+        `plot_train_data` : `bool`, default: `False`
+            If `True`, plots a sample of the training data at the start of training.
+        
+        Returns:
+        --------
+        `model` : `eqx.Module`
+            The trained model after the specified number of training steps.
+        
+        Notes:
+        ------
+        - The function supports optional early stopping and evaluation using exponential 
+          moving averages (EMA) of the model.
+        - It saves the model and optimizer state at regular intervals, as well as plots 
+          training metrics like losses and sampled outputs.
+        - This function handles both EU (Euler-Maruyama) and ODE sampling methods, 
+          depending on the config settings.
+        - The function can reload previously saved optimizer state and continue 
+          training from where it left off.
+    """
+
     print(f"Training SGM with {config.sde.sde} SDE on {config.dataset_name} dataset.")
 
     # Experiment and image save directories
