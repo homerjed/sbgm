@@ -1,14 +1,9 @@
 <h1 align='center'>sbgm</h1>
 <h2 align='center'>Score-Based Diffusion Models in JAX</h2>
 
-Implementation and extension of 
-* [Score-Based Generative Modeling through Stochastic Differential Equations (Song++20)](https://arxiv.org/abs/2011.13456)
+Implementation and extension of [Score-Based Generative Modeling through Stochastic Differential Equations (Song++20)](https://arxiv.org/abs/2011.13456) and [Maximum Likelihood Training of Score-Based Diffusion Models (Song++21)](https://arxiv.org/abs/2101.09258) in `jax` and `equinox`. 
 
-and 
-
-* [Maximum Likelihood Training of Score-Based Diffusion Models (Song++21)](https://arxiv.org/abs/2101.09258) 
-
-in `jax` and `equinox`. 
+This repository provides a lightweight library of models, sampling and likelihood routines. Suitable for likelihood-free or emulation based approaches. Tested and typed code to ensure reliable benchmarkable training and inference.
 
 > [!WARNING]
 > :building_construction: Note this repository is under construction, expect changes. :building_construction:
@@ -22,7 +17,7 @@ Modern cutting-edge diffusion models (see citations) express both the forward an
 -----
 
 <p align="center">
-  <img src="https://github.com/homerjed/sbgm/blob/main/figs/score.png" />
+  <img src="https://github.com/homerjed/sbgm/blob/main/assets/score.png" />
 </p>
 
 *A diagram (see citations) showing how to map data to a noise distribution (the prior) with an SDE, and reverse this SDE for generative modeling. One can also reverse the associated probability flow ODE, which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score.* 
@@ -143,23 +138,23 @@ model = sbgm.train.train(
 <h4 align='left'>Flowers</h4>
 
 Euler-Marayama sampling
-![Flowers Euler-Marayama sampling](figs/flowers_eu.png?raw=true)
+![Flowers Euler-Marayama sampling](assets/flowers_eu.png?raw=true)
 
 ODE sampling
-![Flowers ODE sampling](figs/flowers_ode.png?raw=true)
+![Flowers ODE sampling](assets/flowers_ode.png?raw=true)
 
 <h4 align='left'>CIFAR10</h4>
 
 Euler-Marayama sampling
-![CIFAR10 Euler-marayama sampling](figs/cifar10_eu.png?raw=true)
+![CIFAR10 Euler-marayama sampling](assets/cifar10_eu.png?raw=true)
 
 ODE sampling
-![CIFAR10 ODE sampling](figs/cifar10_ode.png?raw=true)
+![CIFAR10 ODE sampling](assets/cifar10_ode.png?raw=true)
 
-<!-- ![alt text](figs/flowers_ode.png?raw=true) -->
+<!-- ![alt text](assets/flowers_ode.png?raw=true) -->
 
 ### SDEs 
-![alt text](figs/sdes.png?raw=true)
+![alt text](assets/sdes.png?raw=true)
 
 ### Citations
 ```bibtex
