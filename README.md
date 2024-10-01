@@ -3,7 +3,7 @@
 
 Implementation and extension of [Score-Based Generative Modeling through Stochastic Differential Equations (Song++20)](https://arxiv.org/abs/2011.13456) and [Maximum Likelihood Training of Score-Based Diffusion Models (Song++21)](https://arxiv.org/abs/2101.09258) in `jax` and `equinox`. 
 
-This repository provides a lightweight library of models, sampling and likelihood routines. Suitable for likelihood-free or emulation based approaches. Tested and typed code to ensure reliable benchmarkable training and inference.
+This repository provides a lightweight library of models, sampling and likelihood routines. Suitable for likelihood-free or emulation based approaches. Tested and typed code to ensure reliable and benchmarkable training and inference.
 
 > [!WARNING]
 > :building_construction: Note this repository is under construction, expect changes. :building_construction:
@@ -66,17 +66,14 @@ but note that maximum-likelihood training is prohibitively expensive for SDE bas
 ### Usage
 
 Install via
+
 ```
 pip install sbgm
-```
-to run
-```
-python main.py
 ```
 
 See [examples](https://github.com/homerjed/sbgm/tree/main/examples).
 
-To run `cifar10`, try something like
+To run on the `cifar10` image dataset, try something like
 
 ```python
 import sbgm
