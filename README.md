@@ -20,7 +20,7 @@ Modern cutting-edge diffusion models (see citations) express both the forward an
   <img src="https://github.com/homerjed/sbgm/blob/main/assets/sde_ode.png" />
 </p>
 
-*A diagram (see citations) showing how to map data to a noise distribution (the prior) with an SDE, and reverse this SDE for generative modeling. One can also reverse the associated probability flow ODE, which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score.* 
+*A diagram showing how to map data to a noise distribution (the prior) with an SDE, and reverse this SDE for generative modeling. One can also reverse the associated probability flow ODE, which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score.* 
 <!-- $\nabla_{\boldsymbol{x}} \log p_t(\boldsymbol{x}_t)$ -->
 
 -----
