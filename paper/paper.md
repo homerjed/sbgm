@@ -68,6 +68,8 @@ aas-journal: Astrophysical Journal <- The name of the AAS journal.
     - Memory efficiency compared to normalising flows for the same tasks (one network conditioned on 't' compared to many sub-flows + faster than CNFs)
 
     - implemented in JAX, equinox and diffrax
+
+    - likelihood weighting (maximum likelihood training of SBGMs)
 -->
 
 Diffusion-based generative models are a method for density estimation and sampling from high-dimensional distributions. A sub-class of these models, score-based diffusion generatives models (SBGMs), permit exact-likelihood estimation via a change-of-variables associated with the forward diffusion process. Diffusion models allow fitting generative models to high-dimensional data in a more efficient way than normalising flows since only one neural network model parameterises the diffusion process as opposed to a stack of networks in typical normalising flow architectures.
@@ -103,7 +105,7 @@ scientific explorations of forthcoming data releases from the *Gaia* mission
 # Mathematics
 
 <!-- What is diffusion -->
-Diffusion models model the reverse of a forward diffusion process on samples of data $\boldsymbol{x}$ by adding a sequence of noisy perturbations. In \autoref{fig:sde_ode}
+Diffusion models model the reverse of a forward diffusion process on samples of data $\boldsymbol{x}$ by adding a sequence of noisy perturbations. 
 
 <!-- What is a diffusion model -->
 Score-based diffusion models model the forward diffusion process with Stochastic Differential Equations (SDEs) of the form
@@ -137,6 +139,8 @@ $$
 $$
 
 where $\lambda(t)$ is an arbitrary scalar weighting function, chosen to weight certain times - usually near $t=0$ where the data has only a small amount of noise added.
+
+In Figure \autoref{fig:sde_ode} the forward and reverse diffusion processes are shown for a toy problem with their corresponding SDE and ODE paths.
 
 The reverse SDE may be solved with Euler-Murayama sampling (or other annealed Langevin sampling methods) which is featured in the code. 
 
