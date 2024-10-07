@@ -27,52 +27,24 @@ aas-journal: Astrophysical Journal <- The name of the AAS journal.
 
 # Summary
 
-<!-- The forces on stars, galaies, and dark matter under external gravitational -->
-<!-- fields lead to the dynamical evolution of structures in the universe. The orbits -->
-<!-- of these bodies are therefore key to understanding the formation, history, and -->
-<!-- future state of galaxies. The field of "galactic dynamics," which aims to model -->
-<!-- the gravitating components of galaxies to study their structure and evolution, -->
-<!-- is now well-established, commonly taught, and frequently used in astronomy. -->
-<!-- Aside from toy problems and demonstrations, the majority of problems require -->
-<!-- efficient numerical tools, many of which require the same base code (e.g., for -->
-<!-- performing numerical orbit integration). -->
-
-Diffusion models have emerged as the dominant paradigm for generative modelling. The separate advantages of normalising flow, VAEs and GANs are subsumed into this method. The diffusion process is agnostic to the data representation meaning different types of data such as audio, point-clouds, videos and images can be modelled.
+Diffusion models have emerged as the dominant paradigm for generative modelling. The separate advantages of normalising flow, VAEs and GANs are subsumed into this method. Significant limitations of implicit and likelihood-based ML models e.g. modelling normalised probability distributions, data-likelihood calculations and sampling speed. Score-matching diffusion models are more efficient than previous generative model algorithms for these tasks. The diffusion process is agnostic to the data representation meaning different types of data such as audio, point-clouds, videos and images can be modelled. The use of generative models, such as diffusion models, remains somewhat unexplored given the amount of research into these methods in the machine learning community. In order to bridge the gap, trusted software is needed to allow research in natural sciences using generative models. 
 
 # Statement of need
 
 <!--  
-    - Diffusion models are theoretically complex generative models. 
-      Need fast sampling and likleihood methods built on GPU-parallel
-      ODE solvers (diffrax). Subclass of energy-based generative models.
-
     - Given this dataset, the goal of generative modeling is to fit a model 
       to the data distribution such that we can synthesize new data points 
       at will by sampling from the distribution.
 
-    - Significant limitations of implicit and likelihood-based ML models
-      e.g. modelling normalised probability distributions, likelihood calculations
-      and sampling speed. Score matching avoids this. Diffusion scales to large
-      datasets of high dimension better than other approaches.
-
     - Score-based models have achieved SOTA results on many tasks and applications
       e.g. LDMs, ...
-
-    - Given the new avenues of research fast and large generative models offer,
-      a code that carefully implements them is valuable.
-
-    - Memory efficiency compared to normalising flows for the same tasks (one network conditioned on 't' compared to many sub-flows + faster than CNFs)
-
-    - implemented in JAX, equinox and diffrax
-
-    - likelihood weighting (maximum likelihood training of SBGMs)
 -->
 
 Diffusion-based generative models [@diffusion; @ddpm] are a method for density estimation and sampling from high-dimensional distributions. A sub-class of these models, score-based diffusion generatives models (SBGMs, [@sde]), permit exact-likelihood estimation via a change-of-variables associated with the forward diffusion process [@sde_ml]. Diffusion models allow fitting generative models to high-dimensional data in a more efficient way than normalising flows since only one neural network model parameterises the diffusion process as opposed to a stack of networks in typical normalising flow architectures.
 
 <!-- problems in cosmology, need for SBI -->
 
-The software we present, `sbgm`, is designed to be used by researchers in machine learning and the natural sciences for fitting diffusion models with a suite of custom architectures for their tasks. These models can be fit easily with multi-accelerator training and inference within the code. Typical use cases for these kinds of generative models are emulator approaches [@emulating], simulation-based inference (likelihood-free inference, [@sbi]), field-level inference [@field_level_inference] and general inverse problems [@inverse_problem_medical; @Feng2023; @Feng2024] (e.g. image inpainting [@sde] and denoising [@ambientdiffusion; @blinddiffusion]). This code allows for seemless integration of diffusion models to these applications by providing data-generating models with easy conditioning of the data on parameters, classifying variables or other data such as images.
+The software we present, `sbgm`, is designed to be used by researchers in machine learning and the natural sciences for fitting diffusion models with a suite of custom architectures for their tasks. These models can be fit easily with multi-accelerator training and inference within the code. Typical use cases for these kinds of generative models are emulator approaches [@emulating], simulation-based inference (likelihood-free inference, [@sbi]), field-level inference [@field_level_inference] and general inverse problems [@inverse_problem_medical; @Feng2023; @Feng2024] (e.g. image inpainting [@sde] and denoising [@ambientdiffusion; @blinddiffusion]). This code allows for seemless integration of diffusion models to these applications by providing data-generating models with easy conditioning of the data on parameters, classifying variables or other data such as images. Furthermore, the implementation in `equinox` [@equinox] guarantees safe integration of `sbgm` with any other sampling libraries or `jax` [@jax] based codes.
 
 <!-- Other domains... audio etc -->
 
@@ -141,7 +113,7 @@ $$
 $$
 
 
-The code implements these calculations also for the Hutchinson trace estimation method [@ffjord] that reduces the computational expense of the estimate. 
+The code implements these calculations also for the Hutchinson trace estimation method [@ffjord] that reduces the computational expense of the estimate. The 'likelihood weighting' required by maximum likelihood training of score-based diffusion models [@sde_ml] is also implemented in the code such that the score-matching bounds the KL divergence between the model and unknown data distribution per datapoint.
 
 <!--  Controllable generation Yang Song? -->
 
