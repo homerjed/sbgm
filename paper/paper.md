@@ -119,12 +119,19 @@ The score-based diffusion model for the data is fit by optimising the parameters
     x
 $$ -->
 
+$$
+    \mathcal{L}(\theta) = \mathbf{E}_{t\sim\mathcal{U}(0, T)}\mathbf{E}_{\boldsymbol{x}\sim p(\boldsymbol{x})}\mathbf{E}_{\boldsymbol{x}(t)\sim p(\boldsymbol{x}(t)|\boldsymbol{x})}[\lambda(t)||\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x}(t)|\boldsymbol{x}(0)) - \boldsymbol{s}_{\theta}(\boldsymbol{x}(t),t)||_2^2]
+$$
+
 where $\lambda(t)$ is an arbitrary scalar weighting function, chosen to preferentially weight certain times - usually near $t=0$ where the data has only a small amount of noise added. Here, $p_t(\boldsymbol{x}(t)|\boldsymbol{x}(0))$ is the transition kernel for Gaussian diffusion paths. This is defined depending on the form of the SDE [@sde] and for the common variance-preserving (VP) SDE the kernel is written as 
 
 <!-- $$
     % p(\boldsymbol{x}(t)|\boldsymbol{x}(0)) = \mathcal{G}[\boldsymbol{x}(t)|\mu_t \cdot \boldsymbol{x}(0), \sigma^2_t \cdot \mathbb{I}]
-    x
 $$ -->
+
+$$
+    p(\boldsymbol{x}(t)|\boldsymbol{x}(0)) = \mathcal{G}[\boldsymbol{x}(t)|\mu_t \cdot \boldsymbol{x}(0), \sigma^2_t \cdot \mathbf{I}]
+$$
 
 where $\mathcal{G}[\cdot]$ is a Gaussian distribution, $\mu_t=\exp(-\int_0^t\text{d}s \; \beta(s))$ and $\sigma^2_t = 1 - \mu_t$. $\beta(t)$ is typically chosen to be a simple linear function of $t$.
 
