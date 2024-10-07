@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from jaxtyping import Key
 from torchvision import transforms, datasets
 
-from .utils import Scaler, ScalerDataset, _TorchDataLoader
+from .utils import Scaler, ScalerDataset, TorchDataLoader
 
 
 def flowers(key: Key, n_pix: int) -> ScalerDataset:
@@ -46,8 +46,8 @@ def flowers(key: Key, n_pix: int) -> ScalerDataset:
         transform=valid_transform
     )
 
-    train_dataloader = _TorchDataLoader(train_dataset, key=key_train)
-    valid_dataloader = _TorchDataLoader(valid_dataset, key=key_valid)
+    train_dataloader = TorchDataLoader(train_dataset, key=key_train)
+    valid_dataloader = TorchDataLoader(valid_dataset, key=key_valid)
 
     def label_fn(key, n):
         Q = None

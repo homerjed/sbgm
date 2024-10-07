@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import jax.random as jr 
 from sklearn.datasets import make_moons
 
-from .utils import ScalerDataset, _InMemoryDataLoader
+from .utils import ScalerDataset, InMemoryDataLoader
 
 
 def key_to_seed(key):
@@ -32,12 +32,12 @@ def moons(key):
     train_data = (Xt - mean) / std
     valid_data = (Xv - mean) / std
     
-    train_dataloader = _InMemoryDataLoader(
+    train_dataloader = InMemoryDataLoader(
         X=jnp.asarray(train_data), 
         A=jnp.asarray(Yt)[:, jnp.newaxis], 
         key=key_train
     )
-    valid_dataloader = _InMemoryDataLoader(
+    valid_dataloader = InMemoryDataLoader(
         X=jnp.asarray(valid_data), 
         A=jnp.asarray(Yv)[:, jnp.newaxis], 
         key=key_valid

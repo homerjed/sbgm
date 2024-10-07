@@ -8,9 +8,9 @@ import numpy as np
 import torch
 from torchvision import transforms
 
-from .utils import Scaler, ScalerDataset, _TorchDataLoader, _InMemoryDataLoader
+from .utils import Scaler, ScalerDataset, TorchDataLoader, InMemoryDataLoader
 
-data_dir = "/project/ls-gruen/users/jed.homer/data/fields/"
+DATA_DIR = "/project/ls-gruen/users/jed.homer/data/fields/"
 
 
 class MapDataset(torch.utils.data.Dataset):
@@ -39,8 +39,8 @@ class MapDataset(torch.utils.data.Dataset):
 
 
 def get_quijote_data(n_pix: int) -> Tuple[Array, Array]:
-    X = np.load(os.path.join(data_dir, "quijote_fields.npy"))[:, np.newaxis, ...]
-    A = np.load(os.path.join(data_dir, "quijote_parameters.npy"))
+    X = np.load(os.path.join(DATA_DIR, "quijote_fields.npy"))[:, np.newaxis, ...]
+    A = np.load(os.path.join(DATA_DIR, "quijote_parameters.npy"))
 
     dx = int(256 / n_pix)
     X = X.reshape((-1, 1, n_pix, dx, n_pix, dx)).mean(axis=(3, 5))
@@ -48,7 +48,7 @@ def get_quijote_data(n_pix: int) -> Tuple[Array, Array]:
 
 
 def get_quijote_labels() -> Array:
-    Q = np.load(os.path.join(data_dir, "quijote_parameters.npy"))
+    Q = np.load(os.path.join(DATA_DIR, "quijote_parameters.npy"))
     return Q
 
 
@@ -91,14 +91,14 @@ def quijote(key, n_pix, split=0.5):
     valid_dataset = MapDataset(
         (X[n_train:], A[n_train:]), transform=valid_transform
     )
-    # train_dataloader = _TorchDataLoader(
+    # train_dataloader = TorchDataLoader(
     #     train_dataset, 
     #     data_shape=data_shape, 
     #     context_shape=None, 
     #     parameter_dim=parameter_dim, 
     #     key=key_train
     # )
-    # valid_dataloader = _TorchDataLoader(
+    # valid_dataloader = TorchDataLoader(
     #     valid_dataset, 
     #     data_shape=data_shape, 
     #     context_shape=None, 
@@ -107,10 +107,10 @@ def quijote(key, n_pix, split=0.5):
     # )
 
     # Don't have many maps
-    train_dataloader = _InMemoryDataLoader(
+    train_dataloader = InMemoryDataLoader(
         X=X[:n_train], A=A[:n_train], key=key_train
     )
-    valid_dataloader = _InMemoryDataLoader(
+    valid_dataloader = InMemoryDataLoader(
         X=X[n_train:], A=A[n_train:], key=key_valid
     )
 

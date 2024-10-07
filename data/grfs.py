@@ -9,7 +9,7 @@ import torch
 from torchvision import transforms
 import powerbox
 
-from .utils import Scaler, ScalerDataset, _TorchDataLoader
+from .utils import Scaler, ScalerDataset, TorchDataLoader
 
 data_dir = "/project/ls-gruen/users/jed.homer/data/fields/"
 
@@ -135,8 +135,8 @@ def grfs(key, n_pix, split=0.5):
     valid_dataset = MapDataset(
         (X[n_train:], Q[n_train:], A[n_train:]), transform=valid_transform
     )
-    train_dataloader = _TorchDataLoader(train_dataset, key=key_train)
-    valid_dataloader = _TorchDataLoader(valid_dataset, key=key_valid)
+    train_dataloader = TorchDataLoader(train_dataset, key=key_train)
+    valid_dataloader = TorchDataLoader(valid_dataset, key=key_valid)
 
     # Don't have many maps
     # train_dataloader = _InMemoryDataLoader(

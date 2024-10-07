@@ -7,7 +7,7 @@ from .flowers import flowers
 from .moons import moons
 from .grfs import grfs
 from .quijote import quijote
-from .utils import Scaler, ScalerDataset, _InMemoryDataLoader, _TorchDataLoader
+from .utils import Scaler, ScalerDataset, InMemoryDataLoader, TorchDataLoader
 
 
 def get_dataset(

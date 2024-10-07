@@ -1,5 +1,5 @@
 import abc
-from typing import Tuple, Union, NamedTuple, Callable
+from typing import Tuple, Union, Callable
 from dataclasses import dataclass
 import jax
 import jax.numpy as jnp
@@ -27,7 +27,7 @@ class _AbstractDataLoader(metaclass=abc.ABCMeta):
         pass
 
 
-class _InMemoryDataLoader(_AbstractDataLoader):
+class InMemoryDataLoader(_AbstractDataLoader):
     def __init__(self, X, Q=None, A=None, *, key):
         self.X = X 
         self.Q = Q 
@@ -58,7 +58,7 @@ class _InMemoryDataLoader(_AbstractDataLoader):
                 end = start + batch_size
 
 
-class _TorchDataLoader(_AbstractDataLoader):
+class TorchDataLoader(_AbstractDataLoader):
     def __init__(
         self, 
         dataset, 
@@ -132,8 +132,8 @@ class Normer:
 @dataclass
 class ScalerDataset:
     name: str
-    train_dataloader: Union[_TorchDataLoader | _InMemoryDataLoader]
-    valid_dataloader: Union[_TorchDataLoader | _InMemoryDataLoader]
+    train_dataloader: Union[TorchDataLoader | InMemoryDataLoader]
+    valid_dataloader: Union[TorchDataLoader | InMemoryDataLoader]
     data_shape: Tuple[int]
     context_shape: Tuple[int]
     parameter_dim: int

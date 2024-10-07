@@ -9,7 +9,7 @@ tags:
   - Emulators
 authors:
   - name: Jed Homer
-    orcid: 0000-0000-0000-0000
+    orcid: 0009-0002-0985-1437
     equal-contrib: true
     affiliation: "1" # (Multiple affiliations must be quoted)
 affiliations:
@@ -72,43 +72,23 @@ aas-journal: Astrophysical Journal <- The name of the AAS journal.
     - likelihood weighting (maximum likelihood training of SBGMs)
 -->
 
-Diffusion-based generative models are a method for density estimation and sampling from high-dimensional distributions. A sub-class of these models, score-based diffusion generatives models (SBGMs), permit exact-likelihood estimation via a change-of-variables associated with the forward diffusion process. Diffusion models allow fitting generative models to high-dimensional data in a more efficient way than normalising flows since only one neural network model parameterises the diffusion process as opposed to a stack of networks in typical normalising flow architectures.
+Diffusion-based generative models [@diffusion, @ddpm] are a method for density estimation and sampling from high-dimensional distributions. A sub-class of these models, score-based diffusion generatives models (SBGMs, [@sde]), permit exact-likelihood estimation via a change-of-variables associated with the forward diffusion process [@sde_ml]. Diffusion models allow fitting generative models to high-dimensional data in a more efficient way than normalising flows since only one neural network model parameterises the diffusion process as opposed to a stack of networks in typical normalising flow architectures.
 
 <!-- problems in cosmology, need for SBI -->
 
-The software we present, `sbgm`, is designed to be used by machine learning and physics researchers for fitting diffusion models with a suite of custom architectures for their tasks. These models can be fit easily with multi-accelerator training and inference within the code. Typical use cases for these kinds of generative models are emulator approaches, simulation-based inference (likelihood-free inference), field-level infrence and general inverse problems. This code allows for seemless integration of diffusion models to these applications by allowing for easy conditioning of data on parameters, classes or other data such as images.
+The software we present, `sbgm`, is designed to be used by researchers in machine learning and the natural sciences for fitting diffusion models with a suite of custom architectures for their tasks. These models can be fit easily with multi-accelerator training and inference within the code. Typical use cases for these kinds of generative models are emulator approaches [@emulating], simulation-based inference (likelihood-free inference, [@sbi]), field-level inference [@field_level_inference] and general inverse problems [@inverse_problem_medical; @Feng2023; @Feng2024] (e.g. image inpainting [@sde] and denoising [@ambientdiffusion; @blinddiffusion]). This code allows for seemless integration of diffusion models to these applications by allowing for easy conditioning of data on parameters, classifying variables or other data such as images.
 
-
-<!-- `Gala` is an Astropy-affiliated Python package for galactic dynamics. Python
-enables wrapping low-level languages (e.g., C) for speed without losing
-flexibility or ease-of-use in the user-interface. The API for `Gala` was
-designed to provide a class-based and user-friendly interface to fast (C or
-Cython-optimized) implementations of common operations such as gravitational
-potential and force evaluation, orbit integration, dynamical transformations,
-and chaos indicators for nonlinear dynamics. `Gala` also relies heavily on and
-interfaces well with the implementations of physical units and astronomical
-coordinate systems in the `Astropy` package [@astropy] (`astropy.units` and
-`astropy.coordinates`). -->
-
-<!-- `Gala` was designed to be used by both astronomical researchers and by
-students in courses on gravitational dynamics or astronomy. It has already been
-used in a number of scientific publications [@Pearson:2017] and has also been
-used in graduate courses on Galactic dynamics to, e.g., provide interactive
-visualizations of textbook material [@Binney:2008]. The combination of speed,
-design, and support for Astropy functionality in `Gala` will enable exciting
-scientific explorations of forthcoming data releases from the *Gaia* mission
-[@gaia] by students and experts alike. -->
-
+<!-- Other domains... audio etc -->
 
 ![A diagram showing how to map data to a noise distribution (the prior) with an SDE, and reverse this SDE for generative modeling. One can also reverse the associated probability flow ODE, which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score.\label{fig:sde_ode}](sde_ode.png)
 
 # Mathematics
 
 <!-- What is diffusion -->
-Diffusion models model the reverse of a forward diffusion process on samples of data $\boldsymbol{x}$ by adding a sequence of noisy perturbations. 
+Diffusion models model the reverse of a forward diffusion process on samples of data $\boldsymbol{x}$ by adding a sequence of noisy perturbations [@diffusion]. 
 
 <!-- What is a diffusion model -->
-Score-based diffusion models model the forward diffusion process with Stochastic Differential Equations (SDEs) of the form
+Score-based diffusion models model the forward diffusion process with Stochastic Differential Equations (SDEs, [@sde]) of the form
 
 $$
 \text{d}\boldsymbol{x} = f(\boldsymbol{x}, t)\text{d}t + g(t)\text{d}\boldsymbol{w},
@@ -132,44 +112,60 @@ $$
 
 where the score function $\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})$ is substituted with a neural network $\boldsymbol{s}_{\theta}(\boldsymbol{x}(t), t)$ for the sampling process. This network predicts the noise added to the image at time $t$ with the forward diffusion process, in accordance with the SDE, and removes it. This defines the sampling chain for a diffusion model.
 
-The parameters of the network $\theta$ are fit via stochastic gradient descent of the score-matching loss 
+The score-based diffusion model for the data is fit by optimising the parameters of the network $\theta$ via stochastic gradient descent of the score-matching loss  
 
 $$
-    \mathbb{E}_{t\sim\mathcal{U}(0, T)}\mathbb{E}_{\boldsymbol{x}\sim p(\boldsymbol{x})}[\lambda(t)||\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x}) - \boldsymbol{s}_{\theta}(\boldsymbol{x},t)||_2^2]
+    % \mathbb{E}_{t\sim\mathcal{U}(0, T)}\mathbb{E}_{\boldsymbol{x}\sim p(\boldsymbol{x})}[\lambda(t)||\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x}) - \boldsymbol{s}_{\theta}(\boldsymbol{x},t)||_2^2]
+
+    \mathcal{L}(\theta) = \mathbb{E}_{t\sim\mathcal{U}(0, T)}\mathbb{E}_{\boldsymbol{x}\sim p(\boldsymbol{x})}\mathbb{E}_{\boldsymbol{x}(t)\sim p(\boldsymbol{x}(t)|\boldsymbol{x})}[\lambda(t)||\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x}(t)|\boldsymbol{x}(0)) - \boldsymbol{s}_{\theta}(\boldsymbol{x}(t),t)||_2^2]
+
 $$
 
-where $\lambda(t)$ is an arbitrary scalar weighting function, chosen to weight certain times - usually near $t=0$ where the data has only a small amount of noise added.
+where $\lambda(t)$ is an arbitrary scalar weighting function, chosen to preferentially weight certain times - usually near $t=0$ where the data has only a small amount of noise added. Here, $p_t(\boldsymbol{x}(t)|\boldsymbol{x}(0))$ is the transition kernel for Gaussian diffusion paths. This is defined depending on the form of the SDE \cite{} and for the common variance-preserving (VP) SDE the kernel is written as 
 
-In Figure \autoref{fig:sde_ode} the forward and reverse diffusion processes are shown for a toy problem with their corresponding SDE and ODE paths.
+$$
+    p(\boldsymbol{x}(t)|\boldsymbol{x}(0)) = \mathcal{G}[\boldsymbol{x}(t)|\mu_t \cdot \boldsymbol{x}(0), \sigma^2_t \cdot \mathbb{I}]
+$$
+where $\mathcal{G}[\cdot]$ is a Gaussian distribution, $\mu_t=\exp(-\int_0^t\text{d}s \; \beta(s))$ and $\sigma^2_t = 1 - \mu_t$. $\beta(t)$ is typically chosen to be a simple linear function of $t$.
+
+In Figure \ref{fig:sde_ode} the forward and reverse diffusion processes are shown for a samples from a Gaussian mixture with their corresponding SDE and ODE paths.
 
 The reverse SDE may be solved with Euler-Murayama sampling (or other annealed Langevin sampling methods) which is featured in the code. 
 
 However, many of the applications of generative models depend on being able to calculate the likelihood of data. In [1] it is shown that any SDE may be converted into an ordinary differential equation (ODE) without changing the distributions, defined by the SDE, from which the noise is sampled from in the diffusion process. This ODE is known as the probability flow ODE and is written
 
 $$
-    \text{d}\boldsymbol{x} = [f(\boldsymbol{x}, t) - g^2(t)\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})]\text{d}t.
+    \text{d}\boldsymbol{x} = [f(\boldsymbol{x}, t) - g^2(t)\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})]\text{d}t = f'(\boldsymbol{x}, t)\text{d}t.
 $$
 
-This ODE can be solved with an initial-value problem that maps a prior 
-sample from a multivariate Gaussian to the data distribution. This inherits the formalism of continuous normalising flows without the expensive ODE simulations used to train these flows. The likelihood estimate under a score-based diffusion model is estimated by solving the change-of-variables equation for continuous normalising flows. The code implements these calculations also for the Hutchinson trace estimation method that reduces the computational expense of the estimate. 
+This ODE can be solved with an initial-value problem that maps a prior sample from a multivariate Gaussian to the data distribution. This inherits the formalism of continuous normalising flows [@neuralodes; @ffjord] without the expensive ODE simulations used to train these flows. 
+
+The likelihood estimate under a score-based diffusion model is estimated by solving the change-of-variables equation for continuous normalising flows. 
+
+$$
+\frac{\partial}{\partial t} \log p(\boldsymbol{x}(t)) = \nabla_{\boldsymbol{x}} \cdot f(\boldsymbol{x}(t), t),
+$$
+
+which gives the log-likelihood of a single datapoint $\boldsymbol{x}(0)$ as 
+
+$$
+\log p(\boldsymbol{x}(0)) = \log p(\boldsymbol{x}(T)) + \int_{t=0}^{t=T}\text{d}t \; \nabla_{\boldsymbol{x}}\cdot f(\boldsymbol{x}, t).
+$$
+
+
+The code implements these calculations also for the Hutchinson trace estimation method [@ffjord] that reduces the computational expense of the estimate. 
 
 <!--  Controllable generation Yang Song? -->
 
 
-<!-- Single dollars ($) are required for inline mathematics e.g. $f(x) = e^{\pi/x}$ -->
 
-<!-- Double dollars make self-standing equations:
 
-$$\Theta(x) = \left\{\begin{array}{l}
-0\textrm{ if } x < 0\cr
-1\textrm{ else}
-\end{array}\right.$$
 
-You can also use plain \LaTeX for equations
+<!-- You can also use plain \LaTeX for equations
 \begin{equation}\label{eq:fourier}
 \hat f(\omega) = \int_{-\infty}^{\infty} f(x) e^{i\omega x} dx
 \end{equation}
-and refer to \autoref{eq:fourier} from text. -->
+and refer to \autoref{eq:fourier} from text. --> 
 
 # Citations
 
@@ -185,17 +181,15 @@ For a quick reference, the following citation commands can be used:
 - `[@author:2001]` -> "(Author et al., 2001)"
 - `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
 
-# Figures
-
-Figures can be included like this:
+<!-- Figures can be included like this:
 ![Caption for example figure.\label{fig:example}](figure.png)
 and referenced from text using \autoref{fig:example}.
 
 Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
+![Caption for example figure.](figure.png){ width=20% } -->
 
 # Acknowledgements
 
-We thank the developers of these packages for their work and for making their code available to the community.
+We thank the developers of the packages `jax` [@jax], `optax` [@optax], `equinox` [@equinox] and `diffrax` [@kidger] for their work and for making their code available to the community.
 
 # References

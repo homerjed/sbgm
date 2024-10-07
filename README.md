@@ -52,16 +52,22 @@ The Stein score of the marginal probability distributions over $t$ is approximat
 For each SDE there exists a deterministic ODE with marginal likelihoods $p_t(\boldsymbol{x})$ that match the SDE for all time $t$
 
 $$
-\text{d}\boldsymbol{x} = [f(\boldsymbol{x}, t)\text{d}t - \frac{1}{2}g(t)^2\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})]\text{d}t = F(\boldsymbol{x}(t), t).
+\text{d}\boldsymbol{x} = [f(\boldsymbol{x}, t)\text{d}t - \frac{1}{2}g(t)^2\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})]\text{d}t = f'(\boldsymbol{x}(t), t)\text{d}t.
 $$
 
 The continuous normalizing flow formalism allows the ODE to be expressed as
 
 $$
-\frac{\partial}{\partial t} \log p(\boldsymbol{x}(t)) = -\text{Tr}\bigg [ \frac{\partial}{\partial \boldsymbol{x}(t)} F(\boldsymbol{x}(t), t) \bigg ],
+\frac{\partial}{\partial t} \log p(\boldsymbol{x}(t)) = \nabla_{\boldsymbol{x}} \cdot f'(\boldsymbol{x}(t), t),
 $$
 
-but note that maximum-likelihood training is prohibitively expensive for SDE based diffusion models.
+which gives the log-likelihood of a datapoint $\boldsymbol{x}$ as 
+
+$$
+\log p(\boldsymbol{x}(0)) = \log p(\boldsymbol{x}(T)) + \int_{t=0}^{t=T}\text{d}t \; \nabla_{\boldsymbol{x}}\cdot f'(\boldsymbol{x}, t).
+$$
+
+Note that maximum-likelihood training is prohibitively expensive for SDE based diffusion models.
 
 ### Usage
 
@@ -112,7 +118,6 @@ model = sbgm.train.train(
     sde,
     dataset,
     config,
-    reload_opt_state=False,
     sharding=sharding,
     save_dir=root_dir
 )

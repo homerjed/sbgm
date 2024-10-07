@@ -5,7 +5,7 @@ from jaxtyping import Key, Array
 from torch import Tensor
 from torchvision import datasets
 
-from .utils import Scaler, ScalerDataset, _InMemoryDataLoader
+from .utils import Scaler, ScalerDataset, InMemoryDataLoader
 
 
 def tensor_to_array(tensor: Tensor) -> Array:
@@ -46,10 +46,10 @@ def mnist(path:str, key: Key) -> ScalerDataset:
 
     # scaler = Normer(train_data.mean(), train_data.std())
 
-    train_dataloader = _InMemoryDataLoader(
+    train_dataloader = InMemoryDataLoader(
         train_data, Q=None, A=train_targets, key=key_train
     )
-    valid_dataloader = _InMemoryDataLoader(
+    valid_dataloader = InMemoryDataLoader(
         valid_data, Q=None, A=valid_targets, key=key_valid
     )
 

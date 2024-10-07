@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from jaxtyping import Key
 from torchvision import transforms, datasets
 
-from .utils import Scaler, ScalerDataset, _TorchDataLoader
+from .utils import Scaler, ScalerDataset, TorchDataLoader
 
 
 def cifar10(path: str, key: Key) -> ScalerDataset:
@@ -44,10 +44,10 @@ def cifar10(path: str, key: Key) -> ScalerDataset:
         transform=valid_transform
     )
 
-    train_dataloader = _TorchDataLoader(
+    train_dataloader = TorchDataLoader(
         train_dataset, data_shape, context_shape=None, parameter_dim=parameter_dim, key=key_train
     )
-    valid_dataloader = _TorchDataLoader(
+    valid_dataloader = TorchDataLoader(
         valid_dataset, data_shape, context_shape=None, parameter_dim=parameter_dim, key=key_valid
     )
 
