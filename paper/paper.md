@@ -27,7 +27,7 @@ aas-journal: Astrophysical Journal <- The name of the AAS journal.
 
 # Summary
 
-Diffusion models [@diffusion; @ddpm; @sde] have emerged as the dominant paradigm for generative modelling. The separate advantages of normalising flows [@flows; @ffjord], VAEs[@vaes] and GANs [@gans] are subsumed into this method. Significant limitations of implicit and likelihood-based ML models e.g. modelling normalised probability distributions, data-likelihood calculations and sampling speed. Score-matching diffusion models are more efficient than previous generative model algorithms for these tasks. The diffusion process is agnostic to the data representation meaning different types of data such as audio, point-clouds, videos and images can be modelled. The use of generative models, such as diffusion models, remains somewhat unexplored given the amount of research into these methods in the machine learning community. In order to bridge the gap, trusted software is needed to allow research in the natural sciences using generative models. 
+Diffusion models [@diffusion; @ddpm; @sde] have emerged as the dominant paradigm for generative modelling. The separate advantages of normalising flows [@flows; @ffjord], VAEs [@vaes] and GANs [@gans] are subsumed into this method. Significant limitations of implicit and likelihood-based ML models e.g. modelling normalised probability distributions, data-likelihood calculations and sampling speed. Score-matching diffusion models are more efficient than previous generative model algorithms for these tasks. The diffusion process is agnostic to the data representation meaning different types of data such as audio, point-clouds, videos and images can be modelled. The use of generative models, such as diffusion models, remains somewhat unexplored given the amount of research into these methods in the machine learning community. In order to bridge the gap, trusted software is needed to allow research in the natural sciences using generative models. 
 
 # Statement of need
 
@@ -100,6 +100,8 @@ $$
 
 This ODE can be solved with an initial-value problem that maps a prior sample from a multivariate Gaussian to the data distribution. This inherits the formalism of continuous normalising flows [@neuralodes; @ffjord] without the expensive ODE simulations used to train these flows - this allows for a likelihood estimate based on diffusion models [@sde_ml].
 
+![A diagram showing a log-likelihood calculation over a 2D space within which a dataset of samples drawn from a Gaussian mixture model with eight components \label{fig:8gauss}](8gauss.png){ width=20% } 
+
 The likelihood estimate under a score-based diffusion model is estimated by solving the change-of-variables equation for continuous normalising flows. 
 
 $$
@@ -112,8 +114,7 @@ $$
 \log p(\boldsymbol{x}(0)) = \log p(\boldsymbol{x}(T)) + \int_{t=0}^{t=T}\text{d}t \; \nabla_{\boldsymbol{x}}\cdot f(\boldsymbol{x}, t).
 $$
 
-
-The code implements these calculations also for the Hutchinson trace estimation method [@ffjord] that reduces the computational expense of the estimate. The 'likelihood weighting' required by maximum likelihood training of score-based diffusion models [@sde_ml] is also implemented in the code such that the score-matching bounds the KL divergence between the model and unknown data distribution per datapoint.
+The code implements these calculations also for the Hutchinson trace estimation method [@ffjord] that reduces the computational expense of the estimate. Figure \ref{fig:8gauss} shows an example of a data-likelihood calculation using a trained diffusion model with the ODE associated from an SDE. The 'likelihood weighting' required by maximum likelihood training of score-based diffusion models [@sde_ml] is also implemented in the code such that the score-matching bounds the KL divergence between the model and unknown data distribution per datapoint.
 
 <!--  Controllable generation Yang Song? -->
 
