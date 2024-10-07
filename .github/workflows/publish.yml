@@ -6,6 +6,8 @@ on:
         - main
       tags:
         - '0.0.*'
+      paths:
+        - sbgm/**
 
 jobs:
   build:
