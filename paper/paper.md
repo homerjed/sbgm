@@ -157,10 +157,6 @@ The code implements these calculations also for the Hutchinson trace estimation 
 
 <!--  Controllable generation Yang Song? -->
 
-
-
-
-
 <!-- You can also use plain \LaTeX for equations
 \begin{equation}\label{eq:fourier}
 \hat f(\omega) = \int_{-\infty}^{\infty} f(x) e^{i\omega x} dx
