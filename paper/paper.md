@@ -13,7 +13,7 @@ authors:
     equal-contrib: true
     affiliation: "1" # (Multiple affiliations must be quoted)
 affiliations:
- - name: Ludwig-Maximilians-Universität München, Faculty for Physics, University Observatory, Scheinerstrasse 1, München, Deustchland.
+ - name: Ludwig-Maximilians-Universität München, Faculty for Physics, University Observatory, München, Deustchland.
    index: 1
    ror: 00hx57361
 date: 1 October 2024
@@ -27,12 +27,6 @@ aas-journal: Astrophysical Journal <- The name of the AAS journal.
 
 # Summary
 
-<!--  
-    What the code does
-    - Large / parallel training of big diffusion models on multiple accelerators
-    - Speeding up MCMC, LFI, field-level, inverse problems
--->
-
 <!-- The forces on stars, galaies, and dark matter under external gravitational -->
 <!-- fields lead to the dynamical evolution of structures in the universe. The orbits -->
 <!-- of these bodies are therefore key to understanding the formation, history, and -->
@@ -42,6 +36,8 @@ aas-journal: Astrophysical Journal <- The name of the AAS journal.
 <!-- Aside from toy problems and demonstrations, the majority of problems require -->
 <!-- efficient numerical tools, many of which require the same base code (e.g., for -->
 <!-- performing numerical orbit integration). -->
+
+Diffusion models have emerged as the dominant paradigm for generative modelling. The separate advantages of normalising flow, VAEs and GANs are subsumed into this method. The diffusion process is agnostic to the data representation meaning different types of data such as audio, point-clouds, videos and images can be modelled.
 
 # Statement of need
 
@@ -72,11 +68,11 @@ aas-journal: Astrophysical Journal <- The name of the AAS journal.
     - likelihood weighting (maximum likelihood training of SBGMs)
 -->
 
-Diffusion-based generative models [@diffusion, @ddpm] are a method for density estimation and sampling from high-dimensional distributions. A sub-class of these models, score-based diffusion generatives models (SBGMs, [@sde]), permit exact-likelihood estimation via a change-of-variables associated with the forward diffusion process [@sde_ml]. Diffusion models allow fitting generative models to high-dimensional data in a more efficient way than normalising flows since only one neural network model parameterises the diffusion process as opposed to a stack of networks in typical normalising flow architectures.
+Diffusion-based generative models [@diffusion; @ddpm] are a method for density estimation and sampling from high-dimensional distributions. A sub-class of these models, score-based diffusion generatives models (SBGMs, [@sde]), permit exact-likelihood estimation via a change-of-variables associated with the forward diffusion process [@sde_ml]. Diffusion models allow fitting generative models to high-dimensional data in a more efficient way than normalising flows since only one neural network model parameterises the diffusion process as opposed to a stack of networks in typical normalising flow architectures.
 
 <!-- problems in cosmology, need for SBI -->
 
-The software we present, `sbgm`, is designed to be used by researchers in machine learning and the natural sciences for fitting diffusion models with a suite of custom architectures for their tasks. These models can be fit easily with multi-accelerator training and inference within the code. Typical use cases for these kinds of generative models are emulator approaches [@emulating], simulation-based inference (likelihood-free inference, [@sbi]), field-level inference [@field_level_inference] and general inverse problems [@inverse_problem_medical; @Feng2023; @Feng2024] (e.g. image inpainting [@sde] and denoising [@ambientdiffusion; @blinddiffusion]). This code allows for seemless integration of diffusion models to these applications by allowing for easy conditioning of data on parameters, classifying variables or other data such as images.
+The software we present, `sbgm`, is designed to be used by researchers in machine learning and the natural sciences for fitting diffusion models with a suite of custom architectures for their tasks. These models can be fit easily with multi-accelerator training and inference within the code. Typical use cases for these kinds of generative models are emulator approaches [@emulating], simulation-based inference (likelihood-free inference, [@sbi]), field-level inference [@field_level_inference] and general inverse problems [@inverse_problem_medical; @Feng2023; @Feng2024] (e.g. image inpainting [@sde] and denoising [@ambientdiffusion; @blinddiffusion]). This code allows for seemless integration of diffusion models to these applications by providing data-generating models with easy conditioning of the data on parameters, classifying variables or other data such as images.
 
 <!-- Other domains... audio etc -->
 
@@ -94,17 +90,11 @@ $$
 \text{d}\boldsymbol{x} = f(\boldsymbol{x}, t)\text{d}t + g(t)\text{d}\boldsymbol{w},
 $$
 
-where $f(\boldsymbol{x}, t)$ is a vector-valued function called the drift coefficient, $g(t)$ 
-is the diffusion coefficient and $\text{d}\boldsymbol{w}$ is a sample of infinitesimal noise.
-The solution of a SDE is a collection of continuous random variables describing a path parameterised
-by a 'time' variable $t$.
+where $f(\boldsymbol{x}, t)$ is a vector-valued function called the drift coefficient, $g(t)$ is the diffusion coefficient and $\text{d}\boldsymbol{w}$ is a sample of noise $\text{d}\boldsymbol{w}\sim \mathcal{G}[\text{d}\boldsymbol{w}|\mathbf{0}, \mathbf{I}]$. The solution of a SDE is a collection of continuous random variables describing a path parameterised by a 'time' variable $t$. The diffusion path begins at $t=0$ and ends at $T=0$ where the resulting distribution is then a multivariate Gaussian with mean zero and covariance $\mathbf{I}$.
 
-The SDE itself is formulated by design and existing options include the variance exploding (VE), 
-variance preserving (VP) and sub-variance preserving (SubVP). These equations describe how the mean 
-and covariances of the distributions of noise added to the data evolve with time.
+The SDE itself is formulated by design and existing options include the variance exploding (VE), variance preserving (VP) and sub-variance preserving (SubVP). These equations describe how the mean and covariances of the distributions of noise added to the data evolve with time.
 
-
-the reverse of the SDE, mapping from multivariate Gaussian samples to data, is of the form
+The reverse of the SDE, mapping from multivariate Gaussian samples $\boldsymbol{x}(T)$ to samples of data $\boldsymbol{x}(0)$, is of the form
 
 $$
 \text{d}\boldsymbol{x} = [f(\boldsymbol{x}, t) - g^2(t)\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})]\text{d}t + g(t)\text{d}\boldsymbol{w},
@@ -114,20 +104,11 @@ where the score function $\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})$ is su
 
 The score-based diffusion model for the data is fit by optimising the parameters of the network $\theta$ via stochastic gradient descent of the score-matching loss  
 
-<!-- $$
-    % \mathcal{L}(\theta) = \mathbb{E}_{t\sim\mathcal{U}(0, T)}\mathbb{E}_{\boldsymbol{x}\sim p(\boldsymbol{x})}\mathbb{E}_{\boldsymbol{x}(t)\sim p(\boldsymbol{x}(t)|\boldsymbol{x})}[\lambda(t)||\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x}(t)|\boldsymbol{x}(0)) - \boldsymbol{s}_{\theta}(\boldsymbol{x}(t),t)||_2^2]
-    x
-$$ -->
-
 $$
     \mathcal{L}(\theta) = \mathbf{E}_{t\sim\mathcal{U}(0, T)}\mathbf{E}_{\boldsymbol{x}\sim p(\boldsymbol{x})}\mathbf{E}_{\boldsymbol{x}(t)\sim p(\boldsymbol{x}(t)|\boldsymbol{x})}[\lambda(t)||\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x}(t)|\boldsymbol{x}(0)) - \boldsymbol{s}_{\theta}(\boldsymbol{x}(t),t)||_2^2]
 $$
 
 where $\lambda(t)$ is an arbitrary scalar weighting function, chosen to preferentially weight certain times - usually near $t=0$ where the data has only a small amount of noise added. Here, $p_t(\boldsymbol{x}(t)|\boldsymbol{x}(0))$ is the transition kernel for Gaussian diffusion paths. This is defined depending on the form of the SDE [@sde] and for the common variance-preserving (VP) SDE the kernel is written as 
-
-<!-- $$
-    % p(\boldsymbol{x}(t)|\boldsymbol{x}(0)) = \mathcal{G}[\boldsymbol{x}(t)|\mu_t \cdot \boldsymbol{x}(0), \sigma^2_t \cdot \mathbb{I}]
-$$ -->
 
 $$
     p(\boldsymbol{x}(t)|\boldsymbol{x}(0)) = \mathcal{G}[\boldsymbol{x}(t)|\mu_t \cdot \boldsymbol{x}(0), \sigma^2_t \cdot \mathbf{I}]
@@ -137,15 +118,15 @@ where $\mathcal{G}[\cdot]$ is a Gaussian distribution, $\mu_t=\exp(-\int_0^t\tex
 
 In Figure \ref{fig:sde_ode} the forward and reverse diffusion processes are shown for a samples from a Gaussian mixture with their corresponding SDE and ODE paths.
 
-The reverse SDE may be solved with Euler-Murayama sampling (or other annealed Langevin sampling methods) which is featured in the code. 
+The reverse SDE may be solved with Euler-Murayama sampling [@sde] (or other annealed Langevin sampling methods) which is featured in the code. 
 
-However, many of the applications of generative models depend on being able to calculate the likelihood of data. In [1] it is shown that any SDE may be converted into an ordinary differential equation (ODE) without changing the distributions, defined by the SDE, from which the noise is sampled from in the diffusion process. This ODE is known as the probability flow ODE and is written
+However, many of the applications of generative models depend on being able to calculate the likelihood of data. In [@sde] it is shown that any SDE may be converted into an ordinary differential equation (ODE) without changing the distributions, defined by the SDE, from which the noise is sampled from in the diffusion process. This ODE is known as the probability flow ODE [@sde; @sde_ml] and is written
 
 $$
     \text{d}\boldsymbol{x} = [f(\boldsymbol{x}, t) - g^2(t)\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})]\text{d}t = f'(\boldsymbol{x}, t)\text{d}t.
 $$
 
-This ODE can be solved with an initial-value problem that maps a prior sample from a multivariate Gaussian to the data distribution. This inherits the formalism of continuous normalising flows [@neuralodes; @ffjord] without the expensive ODE simulations used to train these flows. 
+This ODE can be solved with an initial-value problem that maps a prior sample from a multivariate Gaussian to the data distribution. This inherits the formalism of continuous normalising flows [@neuralodes; @ffjord] without the expensive ODE simulations used to train these flows - this allows for a likelihood estimate based on diffusion models [@sde_ml].
 
 The likelihood estimate under a score-based diffusion model is estimated by solving the change-of-variables equation for continuous normalising flows. 
 
@@ -164,20 +145,7 @@ The code implements these calculations also for the Hutchinson trace estimation 
 
 <!--  Controllable generation Yang Song? -->
 
-<!-- You can also use plain \LaTeX for equations
-\begin{equation}\label{eq:fourier}
-\hat f(\omega) = \int_{-\infty}^{\infty} f(x) e^{i\omega x} dx
-\end{equation}
-and refer to \autoref{eq:fourier} from text. --> 
-
 <!-- # Citations -->
-
-<!-- Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format. -->
-
-<!-- If you want to cite a software repository URL (e.g. something on GitHub without a preferred
-citation) then you can do it with the example BibTeX entry below for @fidgit. -->
 
 <!-- For a quick reference, the following citation commands can be used:
 - `@author:2001`  ->  "Author et al. (2001)"
@@ -190,6 +158,16 @@ and referenced from text using \autoref{fig:example}.
 
 Figure sizes can be customized by adding an optional second parameter:
 ![Caption for example figure.](figure.png){ width=20% } -->
+
+# Implementations and future work
+
+Diffusion models are defined in `sbgm` via a score-network model $\boldsymbol{s}_{\theta}$ and an SDE. All the availble SDEs in the literature of score-based diffusion models are available. We provide implementations for UNet [@unet] and Residual Network [@resnet] models which are state-of-the-art for diffusion tasks. We are extending the code to provide transformer-based [@dits] and latent diffusion models [@ldms]. 
+
+Our implementation allows for the organisation of projects based on save/load configuration files, model and optimiser checkpointing and utility functions for plotting and saving metrics and sampled data.
+
+# GPU Support
+
+`sbgm` offers easy GPU support including the use of multiple GPU devices for training and sampling within the code.
 
 # Acknowledgements
 
