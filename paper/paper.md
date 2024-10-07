@@ -100,7 +100,7 @@ $$
 
 This ODE can be solved with an initial-value problem that maps a prior sample from a multivariate Gaussian to the data distribution. This inherits the formalism of continuous normalising flows [@neuralodes; @ffjord] without the expensive ODE simulations used to train these flows - this allows for a likelihood estimate based on diffusion models [@sde_ml].
 
-![A diagram showing a log-likelihood calculation over a 2D space within which a dataset of samples drawn from a Gaussian mixture model with eight components \label{fig:8gauss}](8gauss.png){ width=80% } 
+![A diagram showing a log-likelihood calculation over a 2D space within which a dataset of samples drawn from a Gaussian mixture model with eight components. The log-likelihood is calculated using the ODE and a trained diffusion model. \label{fig:8gauss}](8gauss.png){ width=50% } 
 
 The likelihood estimate under a score-based diffusion model is estimated by solving the change-of-variables equation for continuous normalising flows. 
 
