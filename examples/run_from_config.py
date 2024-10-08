@@ -10,7 +10,7 @@ def main():
         Fit a score-based diffusion model.
     """
 
-    datasets_path = "./datasets/"
+    datasets_path = "../datasets/"
     root_dir = "./"
 
     config = [
@@ -44,7 +44,7 @@ def main():
     sde = sbgm.sde.get_sde(config.sde)
 
     # Fit model to dataset
-    model = sbgm.train.train(
+    model = sbgm.train.train_from_config(
         train_key,
         model,
         sde,
