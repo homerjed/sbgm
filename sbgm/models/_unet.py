@@ -275,7 +275,6 @@ class UNet(eqx.Module):
     def __init__(
         self,
         data_shape: tuple[int, int, int],
-        is_biggan: bool,
         dim_mults: list[int],
         hidden_size: int,
         heads: int,
@@ -283,11 +282,12 @@ class UNet(eqx.Module):
         dropout_rate: float,
         num_res_blocks: int,
         attn_resolutions: list[int],
+        is_biggan: bool = False,
         final_activation: Optional[Callable] = jax.nn.tanh,
         q_dim: Optional[int] = None, # Number of channels in conditioning map
         a_dim: Optional[int] = None, # Number of parameters in conditioning 
         *,
-        key: jr.PRNGKey,
+        key: Key,
     ):
         """
             UNet score network. 
@@ -299,9 +299,6 @@ class UNet(eqx.Module):
             -----------
             `data_shape` : `tuple[int, int, int]`
                 Shape of the input data as `(height, width, channels)`.
-            
-            `is_biggan` : `bool`
-                Whether the model is based on the BigGAN architecture.
             
             `dim_mults` : `list[int]`
                 List of integers representing the dimension multipliers for each level in the UNet.
@@ -323,6 +320,9 @@ class UNet(eqx.Module):
             
             `attn_resolutions` : `list[int]`
                 List of resolutions at which attention is applied in the network.
+            
+            `is_biggan` : `bool`
+                Whether the model is based on the BigGAN architecture.
             
             `final_activation` : `Optional[Callable]`, default: `jax.nn.tanh`
                 The final activation function to be applied to the output.
@@ -368,10 +368,12 @@ class UNet(eqx.Module):
         keys_resblock = jr.split(keys[2], num_keys)
         i = 0
         for ind, (dim_in, dim_out) in enumerate(in_out):
+            # Use attention if user specifies it for this resolution in the UNet
             if h in attn_resolutions and w in attn_resolutions:
                 is_attn = True
             else:
                 is_attn = False
+
             res_blocks = [
                 ResnetBlock(
                     dim_in=dim_in,
@@ -424,6 +426,7 @@ class UNet(eqx.Module):
                 i += 1
                 h, w = h // 2, w // 2
             self.down_res_blocks.append(res_blocks)
+
         assert i == num_keys
 
         mid_dim = dims[-1]
@@ -549,7 +552,7 @@ class UNet(eqx.Module):
             _input = t
         t = self.mlp(_input) 
 
-        # Stack d_g, d_m on channel axis
+        # Stack q on channel axis
         if self.q_dim is not None and q is not None:
             _input = jnp.concatenate([y, q])
         else:
@@ -577,7 +580,9 @@ class UNet(eqx.Module):
                 if res_block.up:
                     h = res_block(h, t, key=subkey)
                 else:
-                    h = res_block(jnp.concatenate((h, hs.pop()), axis=0), t, key=subkey)
+                    h = res_block(
+                        jnp.concatenate((h, hs.pop()), axis=0), t, key=subkey
+                    )
 
         assert len(hs) == 0
 

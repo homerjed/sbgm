@@ -50,11 +50,13 @@ def count_params(model):
     )
 
 
-def plot_model_sample(eu_sample, ode_sample, dataset, config, filename):
+def plot_model_sample(eu_sample, ode_sample, dataset, cmap, filename):
 
     def plot_sample(samples, mode):
         fig, ax = plt.subplots(dpi=300)
-        samples_onto_ax(samples, fig, ax, vs=None, cmap=config.cmap)
+        samples_onto_ax(
+            samples, fig, ax, vs=None, cmap=cmap if cmap is not None else "gray_r"
+        )
         plt.savefig(filename + "_" + mode, bbox_inches="tight")
         plt.close()
 
@@ -102,10 +104,10 @@ def plot_sde(sde, filename):
     plt.close()
 
 
-def make_dirs(root_dir, config):
+def make_dirs(root_dir, dataset_name):
     # Make experiment and image save directories
-    img_dir = os.path.join(root_dir, "exps/", config.dataset_name + "/") 
-    exp_dir = os.path.join(root_dir, "imgs/", config.dataset_name + "/") 
+    exp_dir = os.path.join(root_dir, "exps/", dataset_name + "/") 
+    img_dir = os.path.join(exp_dir, "imgs/") 
     for _dir in [img_dir, exp_dir]:
         if not os.path.exists(_dir):
             os.makedirs(_dir, exist_ok=True)
