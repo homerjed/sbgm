@@ -27,24 +27,15 @@ aas-journal: Astrophysical Journal <- The name of the AAS journal.
 
 # Summary
 
-Diffusion models [@diffusion; @ddpm; @sde] have emerged as the dominant paradigm for generative modelling. The separate advantages of normalising flows [@flows; @ffjord], VAEs [@vaes] and GANs [@gans] are subsumed into this method. Significant limitations of implicit and likelihood-based ML models e.g. modelling normalised probability distributions, data-likelihood calculations and sampling speed. Score-matching diffusion models are more efficient than previous generative model algorithms for these tasks. The diffusion process is agnostic to the data representation meaning different types of data such as audio, point-clouds, videos and images can be modelled. The use of generative models, such as diffusion models, remains somewhat unexplored given the amount of research into these methods in the machine learning community. In order to bridge the gap, trusted software is needed to allow research in the natural sciences using generative models. 
+Diffusion models [@diffusion; @ddpm; @sde] have emerged as the dominant paradigm for generative modelling. The advantages of accurate density estimation and high-quality samples of normalising flows [@flows; @ffjord], VAEs [@vaes] and GANs [@gans] are subsumed into this method. Significant limitations exist on implicit and neural network based likelihood models with respect to modelling normalised probability distributions and sampling speed. Score-matching diffusion models are more efficient than previous generative model algorithms for these tasks. The diffusion process is agnostic to the data representation meaning different types of data such as audio, point-clouds, videos and images can be modelled. The use of generative models, such as diffusion models, remains somewhat unexplored given the amount of research into these methods in the machine learning community. In order to bridge the gap, trusted software is needed to allow research in the natural sciences using generative models.
 
 # Statement of need
-
-<!--  
-    - Given this dataset, the goal of generative modeling is to fit a model 
-      to the data distribution such that we can synthesize new data points 
-      at will by sampling from the distribution.
-
-    - Score-based models have achieved SOTA results on many tasks and applications
-      e.g. LDMs, ...
--->
 
 Diffusion-based generative models [@diffusion; @ddpm] are a method for density estimation and sampling from high-dimensional distributions. A sub-class of these models, score-based diffusion generatives models (SBGMs, [@sde]), permit exact-likelihood estimation via a change-of-variables associated with the forward diffusion process [@sde_ml]. Diffusion models allow fitting generative models to high-dimensional data in a more efficient way than normalising flows since only one neural network model parameterises the diffusion process as opposed to a sequence of neural networks in typical normalising flow architectures. Whilst existing diffusion models [@ddpm, @vdms] allow for sampling, they are limited to innaccurate variational inference approaches for density estimation which limits their use for Bayesian inference. This code provides density estimation with diffusion models using GPU enabled ODE solvers in `jax` [@jax] and `diffrax` [@diffrax].
 
 <!-- problems in cosmology, need for SBI -->
 
-The software we present, `sbgm`, is designed to be used by researchers in machine learning and the natural sciences for fitting diffusion models with a suite of custom architectures for their tasks. These models can be fit easily with multi-accelerator training and inference within the code. Typical use cases for these kinds of generative models are emulator approaches [@emulating], simulation-based inference (likelihood-free inference, [@sbi]), field-level inference [@field_level_inference] and general inverse problems [@inverse_problem_medical; @Remy; @Feng2023; @Feng2024] (e.g. image inpainting [@sde] and denoising [@ambientdiffusion; @blinddiffusion]). This code allows for seemless integration of diffusion models to these applications by providing data-generating models with easy conditioning of the data on parameters, classifying variables or other data such as images. Furthermore, the implementation in `equinox` [@equinox] guarantees safe integration of `sbgm` with any other sampling libraries (e.g. BlackJAX @blackjax) or `jax` [@jax] based codes.
+The software we present, `sbgm`, is designed to be used by researchers in machine learning and the natural sciences for fitting diffusion models with a suite of custom architectures for their tasks. These models can be fit easily with multi-accelerator training and inference within the code. Typical use cases for these kinds of generative models are emulator approaches [@emulating], simulation-based inference (e.g. likelihood-free inference, @sbi), field-level inference [@field_level_inference] and general inverse problems [@inverse_problem_medical; @Remy; @Feng2023; @Feng2024] (e.g. image inpainting [@sde] and denoising [@ambientdiffusion; @blinddiffusion]). This code allows for seemless integration of diffusion models to these applications by providing data-generating models with easy conditioning of the data on parameters, classifying variables or other data such as images. Furthermore, the implementation in `equinox` [@equinox] guarantees safe integration of `sbgm` with any other sampling libraries (e.g. BlackJAX @blackjax) or `jax` [@jax] based codes.
 
 <!-- Other domains... audio etc -->
 
@@ -116,7 +107,11 @@ $$
 \log p(\boldsymbol{x}(0)) = \log p(\boldsymbol{x}(T)) + \int_{t=0}^{t=T}\text{d}t \; \nabla_{\boldsymbol{x}}\cdot f(\boldsymbol{x}, t).
 $$
 
-The code implements these calculations also for the Hutchinson trace estimation method [@ffjord] that reduces the computational expense of the estimate. Figure \ref{fig:8gauss} shows an example of a data-likelihood calculation using a trained diffusion model with the ODE associated from an SDE. The 'likelihood weighting' required by maximum likelihood training of score-based diffusion models [@sde_ml] is also implemented in the code such that the score-matching bounds the KL divergence between the model and unknown data distribution per datapoint.
+The code implements these calculations also for the Hutchinson trace estimation method [@ffjord] that reduces the computational expense of the estimate. Figure \ref{fig:8gauss} shows an example of a data-likelihood calculation using a trained diffusion model with the ODE associated from an SDE. It is possible to train score-based diffusion models such that the score-matching loss bounds the Kullback-Leibler divergence for each data point $\boldsymbol{x}$ against the unknown data distribution. This is shown in [@sde_ml] via a choice of $\lambda(t)$ termed the 'likelihood weighting'. It is also implemented in the code such that the score-matching bounds the KL divergence between the model and unknown data distribution per datapoint.
+
+# Conditioning diffusion models
+
+As shown in @batziolis it is possible to fit score-based diffusion models to a conditional distribution $p(\boldsymbol{x}|\boldsymbol{\pi}, \boldsymbol{y})$ where in typical inverse problems $\boldsymbol{y}$ would be an image and $\boldsymbol{\pi}$ a set of parameters in a physical model for the data. The code is implemented such that all training, sampling and density estimation is possible with these inputs. This allows for diffusion models to be used many different kinds of inverse problems.
 
 <!--  Controllable generation Yang Song? -->
 
