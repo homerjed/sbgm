@@ -40,20 +40,20 @@ Diffusion models [@diffusion; @ddpm; @sde] have emerged as the dominant paradigm
       e.g. LDMs, ...
 -->
 
-Diffusion-based generative models [@diffusion; @ddpm] are a method for density estimation and sampling from high-dimensional distributions. A sub-class of these models, score-based diffusion generatives models (SBGMs, [@sde]), permit exact-likelihood estimation via a change-of-variables associated with the forward diffusion process [@sde_ml]. Diffusion models allow fitting generative models to high-dimensional data in a more efficient way than normalising flows since only one neural network model parameterises the diffusion process as opposed to a stack of networks in typical normalising flow architectures.
+Diffusion-based generative models [@diffusion; @ddpm] are a method for density estimation and sampling from high-dimensional distributions. A sub-class of these models, score-based diffusion generatives models (SBGMs, [@sde]), permit exact-likelihood estimation via a change-of-variables associated with the forward diffusion process [@sde_ml]. Diffusion models allow fitting generative models to high-dimensional data in a more efficient way than normalising flows since only one neural network model parameterises the diffusion process as opposed to a sequence of neural networks in typical normalising flow architectures. Whilst existing diffusion models [@ddpm, @vdms] allow for sampling, they are limited to innaccurate variational inference approaches for density estimation which limits their use for Bayesian inference. This code provides density estimation with diffusion models using GPU enabled ODE solvers in `jax` [@jax] and `diffrax` [@diffrax].
 
 <!-- problems in cosmology, need for SBI -->
 
-The software we present, `sbgm`, is designed to be used by researchers in machine learning and the natural sciences for fitting diffusion models with a suite of custom architectures for their tasks. These models can be fit easily with multi-accelerator training and inference within the code. Typical use cases for these kinds of generative models are emulator approaches [@emulating], simulation-based inference (likelihood-free inference, [@sbi]), field-level inference [@field_level_inference] and general inverse problems [@inverse_problem_medical; @Feng2023; @Feng2024] (e.g. image inpainting [@sde] and denoising [@ambientdiffusion; @blinddiffusion]). This code allows for seemless integration of diffusion models to these applications by providing data-generating models with easy conditioning of the data on parameters, classifying variables or other data such as images. Furthermore, the implementation in `equinox` [@equinox] guarantees safe integration of `sbgm` with any other sampling libraries or `jax` [@jax] based codes.
+The software we present, `sbgm`, is designed to be used by researchers in machine learning and the natural sciences for fitting diffusion models with a suite of custom architectures for their tasks. These models can be fit easily with multi-accelerator training and inference within the code. Typical use cases for these kinds of generative models are emulator approaches [@emulating], simulation-based inference (likelihood-free inference, [@sbi]), field-level inference [@field_level_inference] and general inverse problems [@inverse_problem_medical; @Remy; @Feng2023; @Feng2024] (e.g. image inpainting [@sde] and denoising [@ambientdiffusion; @blinddiffusion]). This code allows for seemless integration of diffusion models to these applications by providing data-generating models with easy conditioning of the data on parameters, classifying variables or other data such as images. Furthermore, the implementation in `equinox` [@equinox] guarantees safe integration of `sbgm` with any other sampling libraries (e.g. BlackJAX @blackjax) or `jax` [@jax] based codes.
 
 <!-- Other domains... audio etc -->
 
 ![A diagram showing how to map data to a noise distribution (the prior) with an SDE, and reverse this SDE for generative modeling. One can also reverse the associated probability flow ODE, which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score.\label{fig:sde_ode}](sde_ode.png)
 
-# Mathematics
+# Diffusion  
 
 <!-- What is diffusion -->
-Diffusion models model the reverse of a forward diffusion process on samples of data $\boldsymbol{x}$ by adding a sequence of noisy perturbations [@diffusion]. 
+Diffusion in the context of generative modelling describes the process of adding small amounts of noise sequentially to samples of data $\boldsymbol{x}$ [@diffusion]. A generative model for the data arises from training a neural network to reverse this process by subtracting the noise added to the data.
 
 <!-- What is a diffusion model -->
 Score-based diffusion models model the forward diffusion process with Stochastic Differential Equations (SDEs, [@sde]) of the form
@@ -72,15 +72,15 @@ $$
 \text{d}\boldsymbol{x} = [f(\boldsymbol{x}, t) - g^2(t)\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})]\text{d}t + g(t)\text{d}\boldsymbol{w},
 $$
 
-where the score function $\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})$ is substituted with a neural network $\boldsymbol{s}_{\theta}(\boldsymbol{x}(t), t)$ for the sampling process. This network predicts the noise added to the image at time $t$ with the forward diffusion process, in accordance with the SDE, and removes it. This defines the sampling chain for a diffusion model.
+where the score function $\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})$ is substituted with a neural network $\boldsymbol{s}_{\theta}(\boldsymbol{x}(t), t)$ for the sampling process. This network predicts the noise added to the image at time $t$ with the forward diffusion process, in accordance with the SDE, and removes it. With a data-dimensional sample of Gaussian noise from the prior $p_T(\boldsymbol{x})$ (see \ref{fig:sde_ode}) one can reverse the diffusion process to generate data.
 
-The score-based diffusion model for the data is fit by optimising the parameters of the network $\theta$ via stochastic gradient descent of the score-matching loss  
+The score-based diffusion model for the data is fit by optimising the parameters of the network $\theta$ via stochastic gradient descent of the score-matching loss [@sde] 
 
 $$
     \mathcal{L}(\theta) = \mathbf{E}_{t\sim\mathcal{U}(0, T)}\mathbf{E}_{\boldsymbol{x}\sim p(\boldsymbol{x})}\mathbf{E}_{\boldsymbol{x}(t)\sim p(\boldsymbol{x}(t)|\boldsymbol{x})}[\lambda(t)||\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x}(t)|\boldsymbol{x}(0)) - \boldsymbol{s}_{\theta}(\boldsymbol{x}(t),t)||_2^2]
 $$
 
-where $\lambda(t)$ is an arbitrary scalar weighting function, chosen to preferentially weight certain times - usually near $t=0$ where the data has only a small amount of noise added. Here, $p_t(\boldsymbol{x}(t)|\boldsymbol{x}(0))$ is the transition kernel for Gaussian diffusion paths. This is defined depending on the form of the SDE [@sde] and for the common variance-preserving (VP) SDE the kernel is written as 
+where $\lambda(t)$ is an arbitrary scalar weighting function, chosen to weight certain times - usually near $t=0$ where the data has only a small amount of noise added. Here, $p_t(\boldsymbol{x}(t)|\boldsymbol{x}(0))$ is the transition kernel for Gaussian diffusion paths. This is defined depending on the form of the SDE [@sde] and for the common variance-preserving (VP) SDE the kernel is written as 
 
 $$
     p(\boldsymbol{x}(t)|\boldsymbol{x}(0)) = \mathcal{G}[\boldsymbol{x}(t)|\mu_t \cdot \boldsymbol{x}(0), \sigma^2_t \cdot \mathbf{I}]
@@ -92,7 +92,9 @@ In Figure \ref{fig:sde_ode} the forward and reverse diffusion processes are show
 
 The reverse SDE may be solved with Euler-Murayama sampling [@sde] (or other annealed Langevin sampling methods) which is featured in the code. 
 
-However, many of the applications of generative models depend on being able to calculate the likelihood of data. In [@sde] it is shown that any SDE may be converted into an ordinary differential equation (ODE) without changing the distributions, defined by the SDE, from which the noise is sampled from in the diffusion process. This ODE is known as the probability flow ODE [@sde; @sde_ml] and is written
+# Likelihood 
+
+However, many of the applications of generative models depend on being able to calculate the likelihood of data. In @sde it is shown that any SDE may be converted into an ordinary differential equation (ODE) without changing the distributions, defined by the SDE, from which the noise is sampled from in the diffusion process (denoted $p_t(x)$ and shown in grey in Figure \ref{fig:sde_ode}). This ODE is known as the probability flow ODE [@sde; @sde_ml] and is written
 
 $$
     \text{d}\boldsymbol{x} = [f(\boldsymbol{x}, t) - g^2(t)\nabla_{\boldsymbol{x}}\log p_t(\boldsymbol{x})]\text{d}t = f'(\boldsymbol{x}, t)\text{d}t.
@@ -100,7 +102,7 @@ $$
 
 This ODE can be solved with an initial-value problem that maps a prior sample from a multivariate Gaussian to the data distribution. This inherits the formalism of continuous normalising flows [@neuralodes; @ffjord] without the expensive ODE simulations used to train these flows - this allows for a likelihood estimate based on diffusion models [@sde_ml].
 
-![A diagram showing a log-likelihood calculation over a 2D space within which a dataset of samples drawn from a Gaussian mixture model with eight components. The log-likelihood is calculated using the ODE and a trained diffusion model. \label{fig:8gauss}](8gauss.png){ width=50% } 
+![A diagram showing a log-likelihood calculation over the support of a Gaussian mixture model with eight components. Data is drawn (shown in red) from this mixture to train the diffusion model that gives the likelihood in gray. The log-likelihood is calculated using the ODE and a trained diffusion model. \label{fig:8gauss}](8gauss.png){ width=50% } 
 
 The likelihood estimate under a score-based diffusion model is estimated by solving the change-of-variables equation for continuous normalising flows. 
 
@@ -134,7 +136,7 @@ Figure sizes can be customized by adding an optional second parameter:
 
 # Implementations and future work
 
-Diffusion models are defined in `sbgm` via a score-network model $\boldsymbol{s}_{\theta}$ and an SDE. All the availble SDEs in the literature of score-based diffusion models are available. We provide implementations for UNet [@unet] and Residual Network [@resnet] models which are state-of-the-art for diffusion tasks. We are extending the code to provide transformer-based [@dits] and latent diffusion models [@ldms]. 
+Diffusion models are defined in `sbgm` via a score-network model $\boldsymbol{s}_{\theta}$ and an SDE. All the availble SDEs in the literature of score-based diffusion models are available. We provide implementations for UNet [@unet] and Residual Network [@resnet] models which are state-of-the-art for diffusion tasks. The code is compatible with any model written in the `equinox` [@equinox] framework. We are extending the code to provide transformer-based [@dits] and latent diffusion models [@ldms]. 
 
 Our implementation allows for the organisation of projects based on save/load configuration files, model and optimiser checkpointing and utility functions for plotting and saving metrics and sampled data.
 
