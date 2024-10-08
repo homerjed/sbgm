@@ -56,7 +56,7 @@ def cifar10_config():
     config.start_step      = 0
     config.n_steps         = 1_000_000
     config.batch_size      = 512 #256 # 256 with UNet
-    config.print_every     = 1_000
+    config.sample_and_save_every     = 1_000
     config.lr              = 1e-4
     config.opt             = "adabelief"
     config.opt_kwargs      = {} 

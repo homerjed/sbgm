@@ -37,7 +37,7 @@ def moons_config():
     config.start_step      = 0
     config.n_steps         = 100_000
     config.batch_size      = 128 
-    config.print_every     = 5_000
+    config.sample_and_save_every     = 5_000
     config.lr              = 1e-4
     config.opt             = "adabelief" 
     config.opt_kwargs      = {}
