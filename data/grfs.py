@@ -1,9 +1,10 @@
 import os 
-from typing import Tuple 
+from functools import partial
+from typing import Tuple, Optional
 import jax
 import jax.numpy as jnp
 import jax.random as jr 
-from jaxtyping import Key, Array
+from jaxtyping import PRNGKeyArray, Float, Array
 import numpy as np
 import torch
 from torchvision import transforms
@@ -11,10 +12,8 @@ import powerbox
 
 from .utils import Scaler, Normer, ScalerDataset, TorchDataLoader, InMemoryDataLoader
 
-data_dir = "/project/ls-gruen/users/jed.homer/data/fields/"
 
-
-def get_fields(key: Key, Q, n_pix: int, n_fields: int):
+def get_fields(key: PRNGKeyArray, Q, n_pix: int, n_fields: int):
     G = np.zeros((n_fields, 1, n_pix, n_pix))
     L = np.zeros((n_fields, 1, n_pix, n_pix))
     key = jr.key_data(key) # Convert jr.key() to jr.PRNGKey()
@@ -42,7 +41,12 @@ def get_fields(key: Key, Q, n_pix: int, n_fields: int):
     return G, L
     
 
-def get_data(key: Key, n_pix: int, n_fields: int) -> Tuple[np.ndarray, np.ndarray]:
+def get_data(
+    key: PRNGKeyArray, 
+    n_pix: int, 
+    n_fields: int, 
+    data_dir: Optional[str] = None
+) -> Tuple[np.ndarray, np.ndarray]:
     """
         Load Gaussian and lognormal fields
     """
@@ -57,9 +61,10 @@ def get_data(key: Key, n_pix: int, n_fields: int) -> Tuple[np.ndarray, np.ndarra
     )
     G, L = get_fields(key, Q, n_pix, n_fields=n_fields)
 
-    np.save(os.path.join(data_dir, f"G_{n_pix=}.npy"), G)
-    np.save(os.path.join(data_dir, f"LN_{n_pix=}.npy"), L)
-    np.save(os.path.join(data_dir, f"field_parameters_{n_pix=}.npy"), Q)
+    if data_dir is not None:
+        np.save(os.path.join(data_dir, f"G_{n_pix=}.npy"), G)
+        np.save(os.path.join(data_dir, f"LN_{n_pix=}.npy"), L)
+        np.save(os.path.join(data_dir, f"field_parameters_{n_pix=}.npy"), Q)
 
     return G, L, Q
 
@@ -90,20 +95,15 @@ class MapDataset(torch.utils.data.Dataset):
         return self.tensors[0].size(0)
 
 
-def get_grf_labels(n_pix: int) -> Tuple[np.ndarray, np.ndarray]:
-    Q = np.load(os.path.join(data_dir, f"G_{n_pix=}.npy"))
-    A = np.load(os.path.join(data_dir, f"field_parameters_{n_pix=}.npy"))
-    return Q, A
-
-
 def grfs(
-    key: Key, 
+    key: PRNGKeyArray, 
     n_pix: int, 
     split: float = 0.5, 
     n_fields: int = 10_000, 
     *, 
     in_memory: bool = True
 ) -> ScalerDataset:
+
     key_data, key_train, key_valid = jr.split(key, 3)
 
     data_shape = (1, n_pix, n_pix)
@@ -161,8 +161,11 @@ def grfs(
             key=key_valid
         )
 
-    def label_fn(key: Key[jnp.ndarray, "..."], n: int) -> Tuple[Array, Array]:
-        Q, A = get_grf_labels(n_pix)
+    def label_fn(
+        Q: Float[Array, "n 1 h w"], 
+        A: Float[Array, "n p"],
+        key: PRNGKeyArray, n: int
+    ) -> Tuple[Array, Array]:
         ix = jr.choice(key, jnp.arange(len(Q)), (n,))
         return Q[ix], A[ix]
 
@@ -174,5 +177,5 @@ def grfs(
         context_shape=context_shape,
         parameter_dim=parameter_dim,
         process_fn=scaler,
-        label_fn=label_fn
+        label_fn=partial(label_fn, Q=Q, A=A)
     )

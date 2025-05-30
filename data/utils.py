@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import jax
 import jax.numpy as jnp
 import jax.random as jr 
-from jaxtyping import Key, Array, Float, Scalar, jaxtyped
+from jaxtyping import PRNGKeyArray, Array, Float, Scalar, jaxtyped
 from beartype import beartype as typechecker
 import numpy as np
 import torch
@@ -68,7 +68,7 @@ class InMemoryDataLoader(_AbstractDataLoader):
         A: Optional[np.ndarray | Array] = None, 
         *, 
         process_fn: Optional[Scaler | Normer | Identity] = None,
-        key: Key[jnp.ndarray, "..."]
+        key: PRNGKeyArray
     ):
         self.X = jnp.asarray(X)
         self.Q = jnp.asarray(Q) if exists(Q) else Q
@@ -112,7 +112,7 @@ class TorchDataLoader(_AbstractDataLoader):
         *, 
         process_fn: Optional[Scaler | Normer | Identity] = None,
         num_workers: Optional[int] = None, 
-        key: Key[jnp.ndarray, "..."]
+        key: PRNGKeyArray
     ):
         self.dataset = dataset
         self.context_shape = context_shape 
@@ -200,10 +200,10 @@ class TensorDataset(torch.utils.data.Dataset):
 @jaxtyped(typechecker=typechecker)
 def dataset_from_tensors(
     X: Float[Array, "n ..."],
-    Q: Optional[Float[Array, "n ..."]],
-    A: Optional[Float[Array, "n _"]],
-    key: Key[jnp.ndarray, "..."],
+    Q: Optional[Float[Array, "n ..."]] = None,
+    A: Optional[Float[Array, "n _"]] = None,
     *,
+    key: PRNGKeyArray,
     process_fn: Optional[Scaler | Normer | Identity] = None,
     split: float = 0.8,
     in_memory: bool = False,
@@ -223,7 +223,7 @@ def dataset_from_tensors(
             Conditioning variables (e.g. features or context), optional. Must align with `X` if provided.
         A : Optional[Float[Array, "n _"]]
             Parameters or labels (e.g. target variables) associated with each sample, optional.
-        key : Key[jnp.ndarray, "..."]
+        key : PRNGKeyArray
             PRNG key for random operations such as sampling indices or splitting.
         process_fn : Optional[Scaler | Normer | Identity], default=None
             Optional processing function to normalize or transform the inputs.
@@ -267,7 +267,7 @@ def dataset_from_tensors(
     def label_fn(
         Q: Optional[Float[Array, "n ..."]],
         A: Optional[Float[Array, "n _"]],
-        key: Key[jnp.ndarray, "..."], 
+        key: PRNGKeyArray, 
         n: int
     ) -> Tuple[Array, Array]:
         if exists(Q) and exists(A):
