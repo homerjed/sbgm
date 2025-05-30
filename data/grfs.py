@@ -55,9 +55,9 @@ def get_data(
     n_fields: int, 
     data_dir: Optional[str] = None
 ) -> Tuple[
-    Float[Array, "n_fields 1 n_pix n_pix"],
-    Float[Array, "n_fields 1 n_pix n_pix"],
-    Float[Array, "n_fields 2"]
+    Float[Array, "n 1 n_pix n_pix"],
+    Float[Array, "n 1 n_pix n_pix"],
+    Float[Array, "n 2"]
 ]:
     """
         Load Gaussian and lognormal fields
