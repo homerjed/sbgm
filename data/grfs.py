@@ -16,28 +16,36 @@ from .utils import Scaler, Normer, ScalerDataset, TorchDataLoader, InMemoryDataL
 def get_fields(key: PRNGKeyArray, Q, n_pix: int, n_fields: int):
     G = np.zeros((n_fields, 1, n_pix, n_pix))
     L = np.zeros((n_fields, 1, n_pix, n_pix))
-    key = jr.key_data(key) # Convert jr.key() to jr.PRNGKey()
+
+    key = jr.key_data(key) 
+
     print("Building fields...")
     for n in range(n_fields):
         A, B = Q[n]
         pk_fn = lambda k: A * k ** -B
+        seed = n + jnp.sum(key)
+
         G[n] = powerbox.PowerBox(
             N=n_pix,                 
             dim=2,                   
             pk=pk_fn,
             boxlength=1.0,           
-            seed=n + jnp.sum(key),               
-            # ensure_physical=True       
+            seed=seed,               
         ).delta_x()
+
         L[n] = powerbox.LogNormalPowerBox(
             N=n_pix,                 
             dim=2,                   
             pk=pk_fn,
             boxlength=1.0,           
-            seed=n + jnp.sum(key),               
-            # ensure_physical=True       
+            seed=seed,               
         ).delta_x()
+
         print(f"\r {n=}", end="")
+
+    G = jnp.asarray(G)
+    L = jnp.asarray(L)
+
     return G, L
     
 
@@ -46,13 +54,17 @@ def get_data(
     n_pix: int, 
     n_fields: int, 
     data_dir: Optional[str] = None
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[
+    Float[Array, "n_fields 1 n_pix n_pix"],
+    Float[Array, "n_fields 1 n_pix n_pix"],
+    Float[Array, "n_fields 2"]
+]:
     """
         Load Gaussian and lognormal fields
     """
 
     key_A, key_B = jr.split(key)
-    Q = np.stack(
+    Q = jnp.stack(
         [
             jr.uniform(key_A, (n_fields,), minval=1., maxval=3.),
             jr.uniform(key_B, (n_fields,), minval=1., maxval=3.)
@@ -162,10 +174,12 @@ def grfs(
         )
 
     def label_fn(
+        key: PRNGKeyArray, 
+        n: int,
         Q: Float[Array, "n 1 h w"], 
         A: Float[Array, "n p"],
-        key: PRNGKeyArray, n: int
-    ) -> Tuple[Array, Array]:
+    ) -> Tuple[Float[Array, "b 1 h w"], Float[Array, "b p"]]:
+        # Sample conditioning fields and parameters
         ix = jr.choice(key, jnp.arange(len(Q)), (n,))
         return Q[ix], A[ix]
 
