@@ -62,7 +62,7 @@ def test_resnet():
 
     out = net(t, x, q=q, a=a, key=key)
     assert out.shape == x.shape
-    assert jnp.isfinite(out)
+    assert jnp.all(jnp.isfinite(out))
 
     net = ResidualNetwork(
         x.size, 
@@ -182,11 +182,10 @@ def test_mixer():
     assert jnp.all(jnp.isfinite(out))
 
 
-def test_unet():
+def test_dit():
 
     key = jr.key(0)
 
-    hidden_size = 32
     img_size = 32
     n_channels = 1
     embed_dim = 32
