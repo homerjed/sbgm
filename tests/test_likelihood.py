@@ -48,7 +48,7 @@ def test_likelihood():
     Q = jnp.ones((10,) + (q_dim,))
 
     log_likelihood_fn = get_log_likelihood_fn(
-        model, sde, data_shape, exact_logp=True
+        model, sde, data_shape, exact_log_prob=True
     )
     L_X = jax.vmap(log_likelihood_fn)(X, A, Q)
 
@@ -67,7 +67,7 @@ def test_likelihood():
     X = jnp.ones((10,) + data_shape)
 
     log_likelihood_fn = get_log_likelihood_fn(
-        model, sde, data_shape, exact_logp=True
+        model, sde, data_shape, exact_log_prob=True
     )
     L_X = jax.vmap(log_likelihood_fn)(X)
 
@@ -90,7 +90,7 @@ def test_likelihood():
     keys = jr.split(key, len(X))
 
     log_likelihood_fn = get_log_likelihood_fn(
-        model, sde, data_shape, exact_logp=False
+        model, sde, data_shape, exact_log_prob=False
     )
     L_X = jax.vmap(log_likelihood_fn)(X, A, Q, keys)
 
@@ -111,7 +111,7 @@ def test_likelihood():
     keys = jr.split(key, len(X))
 
     log_likelihood_fn = get_log_likelihood_fn(
-        model, sde, data_shape, exact_logp=False
+        model, sde, data_shape, exact_log_prob=False
     )
     L_X = jax.vmap(log_likelihood_fn, in_axes=(0, None, None, 0))(X, None, None, keys)
 

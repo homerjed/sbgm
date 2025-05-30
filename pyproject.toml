@@ -1,6 +1,6 @@
 [project]
 name = "sbgm"
-version = "0.0.24"
+version = "0.0.25"
 description = "Score-based Diffusion models in JAX."
 readme = "README.md"
 requires-python ="~=3.12"
@@ -41,6 +41,13 @@ dependencies = [
     'tqdm==4.66.4',
     'powerbox==0.8.1',
     'einx==0.3.0'
+]
+
+[project.optional-dependencies]
+examples = [
+    "matplotlib",
+    "numpy",
+    "datasets"
 ]
 
 [build-system]

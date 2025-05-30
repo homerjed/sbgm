@@ -30,6 +30,16 @@ from ._misc import (
 
 Model = eqx.Module
 
+"""
+    Trainer functions for training diffusion models using stochastic differential equations (SDEs).
+    - Train from an `ml_collections.ConfigDict` config object or from keyword arguments directly.
+    - Many bells and whistles such as:
+        - Exponential Moving Average (EMA) of model parameters,
+        - Sampling and saving model outputs at regular intervals,
+        - Support for accumulating gradients over minibatches for large datasets / datavectors,
+        - Sharding of model and data across multiple devices for distributed training.
+"""
+
 
 def apply_ema(
     ema_model: Model, 
@@ -58,7 +68,7 @@ def accumulate_gradients_scan(
     key: Key,
     n_minibatches: int,
     *,
-    grad_fn: Callable = None
+    grad_fn: Callable
 ) -> Tuple[Float[Array, ""], PyTree]:
     batch_size = xqat[0].shape[0]
     minibatch_size = batch_size // n_minibatches

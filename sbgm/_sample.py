@@ -10,6 +10,13 @@ from beartype import beartype as typechecker
 from .sde import SDE
 from ._ode import get_solver
 
+"""
+    Implements sampling from the reverse-time stochastic differential equation (SDE) using either an ODE solver or
+    Euler-Maruyama method. 
+    - This module provides functions to generate samples from a trained score-based generative model
+      by solving the reverse-time SDE defined by the model.
+"""
+
 
 @jaxtyped(typechecker=typechecker)
 @eqx.filter_jit

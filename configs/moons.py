@@ -31,7 +31,7 @@ def moons_config():
     # Sampling
     config.use_ema               = True
     config.sample_size           = 64 # Squared in sampling
-    config.exact_logp            = True
+    config.exact_log_prob        = True
     config.ode_sample            = False 
     config.eu_sample             = False 
 

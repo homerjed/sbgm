@@ -35,7 +35,7 @@ def cifar10_config():
     # Sampling
     config.use_ema               = False
     config.sample_size           = 5
-    config.exact_logp            = False
+    config.exact_log_prob            = False
     config.ode_sample            = True
     config.eu_sample             = True
 

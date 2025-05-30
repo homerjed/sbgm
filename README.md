@@ -77,17 +77,21 @@ Install via
 pip install sbgm
 ```
 
-See [examples](https://github.com/homerjed/sbgm/tree/main/examples).
+and for the [examples](https://github.com/homerjed/sbgm/tree/main/examples), run 
 
-To run on the `cifar10` image dataset, try something like
+```
+pip install .[examples] 
+```
+
+To fit a diffusion model to the `cifar10` image dataset, try something like
 
 ```python
 import sbgm
 import data
 import configs
 
-datasets_path = "."
-root_dir = "."
+datasets_path = "./"
+root_dir = "./"
 
 config = configs.cifar10_config()
 
@@ -129,7 +133,7 @@ model = sbgm.train.train(
 * UNet and transformer score network implementations,
 * VP, SubVP and VE SDEs (neural network $\beta(t)$ and $\sigma(t)$ functions are on the list!),
 * Multi-modal conditioning (basically just optional parameter and image conditioning methods),
-* Checkpointing optimiser and model,
+* Checkpointing for optimiser and model,
 * Multi-device training and sampling.
 
 ### Samples

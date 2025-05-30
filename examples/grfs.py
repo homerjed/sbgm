@@ -56,7 +56,7 @@ weight_fn             = lambda t: 1. - jnp.exp(-beta_integral(t))
 # Sampling
 use_ema               = False
 sample_size           = 5 # Squared for a grid
-exact_logp            = False
+exact_log_prob            = False
 ode_sample            = True # Sample the ODE during training
 eu_sample             = True # Euler-Maruyama sample the SDE during training
 
@@ -245,7 +245,7 @@ plt.close()
 key, key_L = jr.split(key)
 
 log_likelihood_fn = sbgm.ode.get_log_likelihood_fn(
-    model, sde, dataset.data_shape, exact_logp=True
+    model, sde, dataset.data_shape, exact_log_prob=True
 )
 L_X = log_likelihood_fn(X[0], Q[0], A[0], key_L)
 

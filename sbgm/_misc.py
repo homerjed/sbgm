@@ -11,6 +11,14 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
+"""
+    Miscallaneous functions for training, saving, loading models and optimisers,
+    plotting samples, and counting parameters.
+    - You probably will want to have your own implementation of these, but they are
+      here and used in the sbgm.train.* functions if so desired. 
+"""
+
+
 def get_opt(config: ConfigDict) -> optax.GradientTransformation:
     return getattr(optax, config.opt)(config.lr, **config.opt_kwargs)
 

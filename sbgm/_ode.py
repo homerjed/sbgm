@@ -1,13 +1,23 @@
-from typing import Tuple, Callable, Optional, Sequence, Union
+from typing import Tuple, Callable, Optional, Sequence, Union, Literal
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 import equinox as eqx
 import diffrax as dfx
-from jaxtyping import Key, Array, Float, jaxtyped
+from jaxtyping import PRNGKeyArray, Array, Float, Scalar, jaxtyped
 from beartype import beartype as typechecker
 
 from .sde._sde import SDE
+
+"""
+    Methods for sampling from and computing the log-likelihood of data
+    using a score-based model and a ordinary differential equation (SDE)
+    associated with a stochastic differential equation (SDE).
+    - Hutchinson's trace estimator is used to approximate the log-likelihood
+      if computing the trace directly is not computationally feasible.
+    - The ODE is solved using a numerical solver (e.g., Tsit5) to compute the log-likelihood
+      given a sample x and conditioning variables q and a.
+"""
 
 
 def get_solver() -> dfx.AbstractSolver:
@@ -15,7 +25,7 @@ def get_solver() -> dfx.AbstractSolver:
 
 
 def log_prob_approx(
-    t: Union[float, Float[Array, ""]], 
+    t: Union[float, Scalar], 
     y: Float[Array, "..."], 
     args: Tuple[
         Float[Array, "..."], 
@@ -24,7 +34,7 @@ def log_prob_approx(
         Callable[
             [
                 Float[Array, "..."], 
-                Float[Array, ""], 
+                Scalar, 
                 Optional[Float[Array, "..."]], 
                 Optional[Float[Array, "..."]]
             ], 
@@ -32,7 +42,7 @@ def log_prob_approx(
         ],
         Sequence[int]
     ]
-) -> Tuple[Float[Array, "..."], Float[Array, ""]]:
+) -> Tuple[Float[Array, "..."], Scalar]:
     """ 
         Approx. trace using Hutchinson's trace estimator. 
         - optional multiple-eps sample to average estimated log_prob over
@@ -59,7 +69,7 @@ def log_prob_approx(
 
 
 def log_prob_exact(
-    t: Union[float, Float[Array, ""]], 
+    t: Union[float, Scalar], 
     y: Float[Array, "..."], 
     args: Tuple[
         None, 
@@ -68,7 +78,7 @@ def log_prob_exact(
         Callable[
             [
                 Float[Array, "..."], 
-                Float[Array, ""], 
+                Scalar, 
                 Optional[Float[Array, "..."]], 
                 Optional[Float[Array, "..."]]
             ], 
@@ -76,7 +86,7 @@ def log_prob_exact(
         ],
         Sequence[int]
     ]
-) -> Tuple[Float[Array, "..."], Float[Array, ""]]:
+) -> Tuple[Float[Array, "..."], Scalar]:
     """ 
         Compute trace directly. 
     """
@@ -98,7 +108,7 @@ def get_ode(
 ) -> Callable[
     [
         Float[Array, "..."], 
-        Float[Array, ""], 
+        Scalar, 
         Optional[Float[Array, "..."]], 
         Optional[Float[Array, "..."]]
     ], 
@@ -108,7 +118,7 @@ def get_ode(
 
     def ode(
         y: Float[Array, "..."], 
-        t: Union[float, Float[Array, ""]], 
+        t: Union[float, Scalar], 
         q: Optional[Array] = None, 
         a: Optional[Array] = None
     ) -> Float[Array, "..."]:
@@ -121,17 +131,19 @@ def get_ode(
 @jaxtyped(typechecker=typechecker)
 @eqx.filter_jit
 def log_likelihood(
-    key: Key[jnp.ndarray, "..."] | None, 
+    key: Optional[PRNGKeyArray], 
     model: eqx.Module, 
     sde: SDE,
     data_shape: Sequence[int], 
     x: Float[Array, "..."], 
     q: Optional[Float[Array, "..."]] = None, 
     a: Optional[Float[Array, "..."]] = None, 
-    exact_logp: bool = False,
+    *,
+    exact_log_prob: bool = False,
     n_eps: Optional[int] = 10,
+    eps_noise_type: Literal["gaussian", "rademacher"] = "gaussian",
     solver: Optional[dfx.AbstractSolver] = None
-) -> Tuple[Float[Array, "..."], Float[Array, ""]]:
+) -> Tuple[Float[Array, "..."], Scalar]:
     """
         Computes the log-likelihood of data by solving an ordinary differential equation (ODE) 
         related to the reverse SDE paramterised with a score network. The function supports exact 
@@ -139,8 +151,8 @@ def log_likelihood(
 
         Parameters:
         -----------
-        `key` : `Key`
-            A JAX random key used for generating noise (eps) during the log-likelihood approximation.
+        `key` : `PRNGKeyArray`
+            A JAX random key used for generating noise (eps) during the log-likelihood approximation (if it is required).
         
         `model` : `eqx.Module`
             The trained model, typically a score-based generative model, used to compute the likelihood.
@@ -160,12 +172,15 @@ def log_likelihood(
         `a` : `Optional[Array]`, default: `None`
             Optional conditioning variable `a` related to the input data, if applicable.
         
-        `exact_logp` : `bool`, default: `False`
+        `exact_log_prob` : `bool`, default: `False`
             If `True`, computes the exact log-likelihood. Otherwise, uses an approximation with noise realizations.
         
         `n_eps` : `Optional[int]`, default: `10`
-            The number of noise (`eps`) realizations used for approximating the log-likelihood when `exact_logp` is `False`. 
-            Ignored if `exact_logp` is `True`.
+            The number of noise (`eps`) realizations used for approximating the log-likelihood when `exact_log_prob` is `False`. 
+            Ignored if `exact_log_prob` is `True`. Noise realizations are for the Hutchinson trace estimator.
+        
+        `eps_noise_type` : `Literal["gaussian", "rademacher"]`, default: `"gaussian"`
+            The type of noise to use for the `eps` realizations. Can be either "gaussian" or "rademacher".
         
         `solver` : `Optional[dfx.AbstractSolver]`, default: `None`
             The differential equation solver to be used for solving the ODE. If `None`, a default solver is used.
@@ -183,7 +198,7 @@ def log_likelihood(
         ------
         - The function works by solving an initial value problem (IVP) for the ODE that corresponds to the 
           log-likelihood of the data.
-        - If `exact_logp` is `False`, the log-likelihood is approximated by averaging over multiple noise 
+        - If `exact_log_prob` is `False`, the log-likelihood is approximated by averaging over multiple noise 
           realizations (`eps`).
         - The `solver` parameter allows for flexible ODE solving, and by default, a suitable solver is chosen 
           (`diffrax.Tsit5()`) if not provided.
@@ -193,17 +208,21 @@ def log_likelihood(
 
     ode = get_ode(model, sde)
 
-    # TODO: multiple eps realisations for averaging
-    if not exact_logp:
+    if not exact_log_prob:
         assert key is not None, (
             "Must provide key for approximate likelihood calculations."
         )
+
         if n_eps is not None:
             eps_shape = (n_eps,) + x.shape 
         else:
             eps_shape = x.shape
 
-        eps = jr.normal(key, eps_shape)
+        if eps_noise_type == "gaussian":
+            eps = jr.normal(key, eps_shape)
+        if eps_noise_type == "rademacher":
+            eps = jr.rademacher(key, eps_shape)
+
         _ode_term = log_prob_approx
     else:
         eps = None
@@ -223,8 +242,10 @@ def log_likelihood(
         # adjoint=dfx.DirectAdjoint()
     ) 
     (z,), (delta_log_likelihood,) = sol.ys
+
     p_z = sde.prior_log_prob(z)
     log_p_x = p_z + delta_log_likelihood 
+
     return z, log_p_x
 
 
@@ -232,8 +253,9 @@ def log_likelihood(
 def get_log_likelihood_fn(
     model: eqx.Module, 
     sde: SDE, 
+    *,
     data_shape: Sequence[int], 
-    exact_logp: bool = False,
+    exact_log_prob: bool = False,
     n_eps: Optional[int] = None,
     solver: Optional[dfx.AbstractSolver] = None
 ) -> Callable[
@@ -241,8 +263,9 @@ def get_log_likelihood_fn(
         Float[Array, "..."], 
         Optional[Float[Array, "..."]], 
         Optional[Float[Array, "..."]], 
+        Optional[PRNGKeyArray]
     ],
-    Float[Array, ""]
+    Scalar
 ]:
     """
         Returns a parameterized log-likelihood function that computes the log-likelihood 
@@ -259,12 +282,12 @@ def get_log_likelihood_fn(
         `data_shape` : `Sequence[int]`
             Shape of the input data for which the log-likelihood will be computed.
         
-        `exact_logp` : `bool`, default: `False`
+        `exact_log_prob` : `bool`, default: `False`
             If `True`, the returned function will compute the exact log-likelihood. Otherwise, it will use 
             an approximation with multiple noise realizations.
         
         `n_eps` : `Optional[int]`, default: `None`
-            The number of noise realizations (`eps`) to use when approximating the log-likelihood. Ignored if `exact_logp` is `True`.
+            The number of noise realizations (`eps`) to use when approximating the log-likelihood. Ignored if `exact_log_prob` is `True`.
         
         `solver` : `Optional[dfx.AbstractSolver]`, default: `None`
             The differential equation solver to use in the returned function for solving the ODE. If `None`, a default solver is used.
@@ -278,7 +301,7 @@ def get_log_likelihood_fn(
         The returned function has the following signature:
 
         ```python
-        def _log_likelihood_fn(x: Array, q: Optional[Array], a: Optional[Array], key: Key) -> Array:
+        def _log_likelihood_fn(x: Array, q: Optional[Array], a: Optional[Array], key: PRNGKeyArray) -> Array:
             '''
             Computes the log-likelihood of input data `x`, optionally conditioned on `q` and `a`.
             
@@ -293,7 +316,7 @@ def get_log_likelihood_fn(
             `a` : `Optional[Array]`
                 Optional conditioning variable `a`, if applicable.
             
-            `key` : `Key`
+            `key` : `PRNGKeyArray`
                 A JAX random key for sampling noise during log-likelihood approximation.
 
             Returns:
@@ -309,8 +332,8 @@ def get_log_likelihood_fn(
         x: Float[Array, "..."], 
         q: Optional[Float[Array, "..."]] = None, 
         a: Optional[Float[Array, "..."]] = None, 
-        key: Optional[Key[jnp.ndarray, "..."]] = None
-    ) -> Float[Array, ""]:
+        key: Optional[PRNGKeyArray] = None
+    ) -> Scalar:
         """
             Computes the log-likelihood of input data `x` using a score-based model and stochastic 
             differential equation (SDE), optionally conditioned on `q` and `a`.
@@ -331,9 +354,9 @@ def get_log_likelihood_fn(
             `a` : `Optional[Array]`, default: `None`
                 Optional conditioning variable `a`, used to condition the log-likelihood calculation if applicable.
             
-            `key` : `Optional[Key]`, default: `None`
+            `key` : `Optional[PRNGKeyArray]`, default: `None`
                 A JAX random key used for generating noise realizations in the case of approximate log-likelihood 
-                computations. If the exact log-likelihood is being computed (`exact_logp=True` in `get_log_likelihood_fn`), 
+                computations. If the exact log-likelihood is being computed (`exact_log_prob=True` in `get_log_likelihood_fn`), 
                 this argument may be ignored.
 
             Returns:
@@ -344,7 +367,7 @@ def get_log_likelihood_fn(
 
             Notes:
             ------
-            - If `exact_logp` was set to `False` when creating this function, it uses Hutchinson trace approximation 
+            - If `exact_log_prob` was set to `False` when creating this function, it uses Hutchinson trace approximation 
               with `n_eps` noise realizations to approximate the log-likelihood.
             - The function relies on solving an initial value problem for the reverse-time ODE associated with the SDE.
             - The log-likelihood can be conditioned on additional variables `q` and `a`, which are passed into the SDE.
@@ -360,7 +383,16 @@ def get_log_likelihood_fn(
             ```
         """
         _, log_probs = log_likelihood(
-            key, model, sde, data_shape, x, q, a, exact_logp, n_eps, solver
+            key, 
+            model, 
+            sde, 
+            data_shape, 
+            x, 
+            q, 
+            a, 
+            exact_log_prob=exact_log_prob, 
+            n_eps=n_eps, 
+            solver=solver
         )
         return log_probs
     return _log_likelihood_fn
