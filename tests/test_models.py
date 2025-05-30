@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 
-from sbgm.models import UNet, ResidualNetwork, Mixer2d
+from sbgm.models import UNet, ResidualNetwork, Mixer2d, DiT
 
 
 def test_resnet():
@@ -178,6 +178,104 @@ def test_mixer():
     )
 
     out = net(t, x, q=q, a=a, key=key)
+    assert out.shape == x.shape
+    assert jnp.all(jnp.isfinite(out))
+
+
+def test_unet():
+
+    key = jr.key(0)
+
+    hidden_size = 32
+    img_size = 32
+    n_channels = 1
+    embed_dim = 32
+    patch_size = 8 
+    n_heads = 2
+    depth = 2
+
+    x = jnp.ones((1, 32, 32))
+    t = jnp.ones(())
+
+    q_dim = 1
+    a_dim = 2
+
+    dit = DiT(
+        img_size=img_size,
+        channels=n_channels,
+        embed_dim=embed_dim,
+        patch_size=patch_size,
+        depth=depth,
+        n_heads=n_heads,
+        q_dim=q_dim, # Number of channels in conditioning map
+        a_dim=a_dim,  
+        key=key
+    )
+
+    q = jnp.ones((1, 32, 32))
+    a = jnp.ones((2,))
+
+    out = dit(t, x, q=q, a=a, key=key)
+    assert out.shape == x.shape
+    assert jnp.all(jnp.isfinite(out))
+
+    q_dim = None
+    a_dim = None
+
+    dit = DiT(
+        img_size=img_size,
+        channels=n_channels,
+        embed_dim=embed_dim,
+        patch_size=patch_size,
+        depth=depth,
+        n_heads=n_heads,
+        q_dim=q_dim, # Number of channels in conditioning map
+        a_dim=a_dim,  
+        key=key
+    )
+    
+    out = dit(t, x, key=key)
+    assert out.shape == x.shape
+    assert jnp.all(jnp.isfinite(out))
+
+    q_dim = 1
+    a_dim = None
+
+    dit = DiT(
+        img_size=img_size,
+        channels=n_channels,
+        embed_dim=embed_dim,
+        patch_size=patch_size,
+        depth=depth,
+        n_heads=n_heads,
+        q_dim=q_dim, # Number of channels in conditioning map
+        a_dim=a_dim,  
+        key=key
+    )
+    
+    q = jnp.ones((1, 32, 32))
+
+    out = dit(t, x, q=q, key=key)
+    assert out.shape == x.shape
+    assert jnp.all(jnp.isfinite(out))
+
+    q_dim = None
+    a_dim = 2 
+
+    dit = DiT(
+        img_size=img_size,
+        channels=n_channels,
+        embed_dim=embed_dim,
+        patch_size=patch_size,
+        depth=depth,
+        n_heads=n_heads,
+        q_dim=q_dim, # Number of channels in conditioning map
+        a_dim=a_dim,  
+        key=key
+    )
+    
+    a = jnp.ones((2,))
+    out = dit(t, x, a=a, key=key)
     assert out.shape == x.shape
     assert jnp.all(jnp.isfinite(out))
 
