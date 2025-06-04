@@ -12,3 +12,4 @@ cifar10.ipynb
 grfs.ipynb
 simple.ipynb
 mnist_clouds.py
+ldm.py

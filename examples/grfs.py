@@ -243,7 +243,7 @@ plt.close()
 key, key_L = jr.split(key)
 
 log_likelihood_fn = sbgm.ode.get_log_likelihood_fn(
-    model, sde, dataset.data_shape, exact_log_prob=True
+    model, sde, data_shape=dataset.data_shape, exact_log_prob=True
 )
 L_X = log_likelihood_fn(X[0], Q[0], A[0], key_L)
 
